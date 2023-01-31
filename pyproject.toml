@@ -2,7 +2,7 @@
 name = "hojichar"
 version = "0.2.0"
 description = "Text preprocessing management system."
-lisence = "Apache-2.0"
+license = "Apache-2.0"
 authors = ["kenta.shinzato <hoppiece@gmail.com>"]
 
 [tool.poetry.dependencies]
