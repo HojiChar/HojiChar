@@ -27,6 +27,7 @@ isort = "^5.10.1"
 [tool.poetry.group.test.dependencies]
 pytest = "^7.1.2"
 mypy = ">=0.982"
+pytest-cov = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 taskipy = "^1.10.3"
