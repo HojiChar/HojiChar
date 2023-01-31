@@ -3,7 +3,7 @@ name: CI wowkflow
 on: [push, pull_request]
 
 jobs:
-  ci:
+  CI:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -36,5 +36,3 @@ jobs:
           mypy .
       - name: Upload coverge reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
