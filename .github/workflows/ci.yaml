@@ -1,12 +1,15 @@
-name: Python package
+name: CI wowkflow
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  CI:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
         python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
@@ -29,5 +32,7 @@ jobs:
         continue-on-error: true
       - name: Test with pytest and doctest
         run: |
-          pytest . --doctest-modules
+          pytest --cov --doctest-modules .
           mypy .
+      - name: Upload coverge reports to Codecov via GitHub Actions
+        uses: codecov/codecov-action@v3
