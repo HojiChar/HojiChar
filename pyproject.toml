@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "hojichar"
-version = "0.2.0"
+version = "0.0.0" # Versioning by git tag dinamically with https://github.com/mtkennerly/poetry-dynamic-versioning
 description = "Text preprocessing management system."
 license = "Apache-2.0"
 authors = ["kenta.shinzato <hoppiece@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/HojiChar/HojiChar"
+repository = "https://github.com/HojiChar/HojiChar"
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -33,8 +36,8 @@ pytest-cov = "^4.0.0"
 taskipy = "^1.10.3"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.black]
 line-length = 99
@@ -50,3 +53,8 @@ ignore_missing_imports = true
 lint = "flake8 --show-source hojichar/ tests/ && isort --check-only --diff hojichar/ tests/"
 format = "black hojichar/ tests/ && isort hojichar/ tests"
 test = "pytest . --doctest-modules && mypy ."
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
