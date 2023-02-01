@@ -21,7 +21,7 @@ jobs:
           poetry self add "poetry-dynamic-versioning[plugin]"
       - name: PyPI settings
         run: |
-          poetry config pypi-token.testpypi ${{ secrets.PYPI_API_TOKEN }}
+          poetry config pypi-token.pypi ${{ secrets.PYPI_API_TOKEN }}
       - name: Build and publish via Poetry
         run: |
           poetry build
