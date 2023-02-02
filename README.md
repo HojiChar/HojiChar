@@ -1,6 +1,9 @@
 # HojiChar
+[![PyPI version](https://badge.fury.io/py/hojichar.svg)](https://badge.fury.io/py/hojichar)
+[![Python Versions](https://img.shields.io/pypi/pyversions/hojichar.svg)](https://pypi.org/project/hojichar/)
 [![CI wowkflow](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml/badge.svg)](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml)
 [![codecov](https://codecov.io/gh/HojiChar/HojiChar/branch/main/graph/badge.svg?token=16928I9U9Y)](https://codecov.io/gh/HojiChar/HojiChar)
+
 ## 概要
 HojiChar はテキストデータの前処理のためのPythonモジュールです. 言語モデル構築時などにコーパスを前処理する目的で開発されました。
 
@@ -11,14 +14,17 @@ HojiChar はテキストデータの前処理のためのPythonモジュール�
 
 ## 使い方
 ### インストール
-*install via pip -- 準備中*
+```
+pip install hojichar
+```
 
 **Poetry によるローカルインストール**
 
 `python >= 3.8, poetry >= 1.2`
 
-このリポジトリをクローンし、poetry でインストールします。
 ```
+https://github.com/HojiChar/HojiChar.git
+cd HojiChar
 poetry install
 ```
 
