@@ -189,17 +189,11 @@ class SentenceTokenizer(Filter):
 
 class DocumentNormalizer(Filter):
     """
-    このクラスは hojichar.filters.normalization.DocumentNormalizer に移動しました.
-
-    正規化をします.
+    Unicode の正規化をします.
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DocumentNormalizer は廃止されます. \
-        hojihca.filters.normalization.DocumentNormalizer に移行しました",
-        )
 
     def apply(self, document: Document) -> Document:
         document.text = unicodedata.normalize("NFKC", document.text)
