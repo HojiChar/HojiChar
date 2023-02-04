@@ -1,12 +1,8 @@
-import copy
 import json
 import logging
 import pathlib
 import re
 import unicodedata
-from typing import Callable, List
-
-import mmh3  # type: ignore
 
 import hojichar
 from hojichar.core.filter_interface import Filter
@@ -257,7 +253,8 @@ class DiscardAdultContentJa(NgWordsFilterJa):
         False
 
         挙動は正しいが誤検知しているケース. 他にも, サック in リュックサック,
-        >>> DiscardAdultContentJa().apply(Document("アスパラガス")).is_rejected  # Matching with NG keyword "アス"
+        >>> DiscardAdultContentJa().apply(Document("アスパラガス")).is_rejected \
+        # Matching with NG keyword "アス"
         True
         """
         return super().apply(doc)
@@ -303,7 +300,8 @@ class DiscardDiscriminationContentJa(NgWordsFilterJa):
 
     def apply(self, doc: Document) -> Document:
         """
-        >>> DiscardDiscriminationContentJa().apply(Document("<TEST_STRING_OF_DISCRIMINATION_KEYWORD>")).is_rejected
+        >>> DiscardDiscriminationContentJa().\
+            apply(Document("<TEST_STRING_OF_DISCRIMINATION_KEYWORD>")).is_rejected
         True
 
         >>> DiscardDiscriminationContentJa().apply(Document("ほうじ茶")).is_rejected
@@ -325,7 +323,8 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
     def apply(self, doc: Document) -> Document:
         """
-        >>> DiscardViolenceContentJa().apply(Document("<TEST_STRING_OF_VIOLENCE_KEYWORD>")).is_rejected
+        >>> DiscardViolenceContentJa()\
+            .apply(Document("<TEST_STRING_OF_VIOLENCE_KEYWORD>")).is_rejected
         True
 
         >>> DiscardViolenceContentJa().apply(Document("ほうじ茶")).is_rejected
@@ -347,7 +346,7 @@ class DiscardBBSComments(Filter):
 
         self.max_allowed_num = max_allowed_num
         self.keyword_pat = re.compile(
-            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"
+            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"  # noqa
         )
 
     def apply(self, doc):
@@ -532,10 +531,10 @@ class MaskPersonalInformation(Filter):
         super().__init__(*args, **kwargs)
 
         self.phone_pat = re.compile(
-            r"((0|\+\d{1,3}[- ]?)(\d{2}[- ]?\d{4}[- ]?|\d[- ]?\d{4}[- ]?|\d{2}[- ]?\d{3}[- ]?|\d{3}[- ]?\d{2}[- ]?|\d{4}[- ]?\d{1}[- ]?))\d{4}"
+            r"((0|\+\d{1,3}[- ]?)(\d{2}[- ]?\d{4}[- ]?|\d[- ]?\d{4}[- ]?|\d{2}[- ]?\d{3}[- ]?|\d{3}[- ]?\d{2}[- ]?|\d{4}[- ]?\d{1}[- ]?))\d{4}"  # noqa
         )
         self.email_pat = re.compile(
-            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"
+            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
         )
 
     def apply(self, doc: Document) -> Document:
