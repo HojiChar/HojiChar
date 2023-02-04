@@ -47,9 +47,3 @@ class SEOTokenRemover(TokenFilter):
         except Exception:
             pass
         return token
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

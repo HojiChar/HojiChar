@@ -32,12 +32,12 @@ poetry install
 ### Rocket start
 `Compose` クラスを使ってフィルタを作成します.
 ```Python
-from hojichar import Compose, document_filters, cleaners
+from hojichar import Compose, document_filters
 
 cleaner = Compose([
     document_filters.JSONLoader(key="text"),
-    cleaners.AcceptJapanese(),
-    cleaners.DocumentLengthFilter(min_doc_len=0,max_doc_len=1000),
+    document_filters.AcceptJapanese(),
+    document_filters.DocumentLengthFilter(min_doc_len=0,max_doc_len=1000),
     document_filters.ExampleHojiChar()
 ])
 ```
