@@ -1,15 +1,9 @@
-# flake8: noqa
-"""
-ドキュメント単位のフィルタの実装です.
-このモジュールは廃止され, 機能別に cleaneras, normalization, tokenization などに移行しています.
-"""
 import copy
 import json
 import logging
 import pathlib
 import re
 import unicodedata
-import warnings
 from typing import Callable, List
 
 import mmh3  # type: ignore
@@ -129,8 +123,6 @@ class DiscardAll(Filter):
 
 class ApplyDiscard(Filter):
     """
-    このクラスは hojihca.filters.cleaners.ApplyDiscard に移動しました.
-
     上流フィルタで破棄された`Document`を空文字列にします.
 
     `Document.is_rejected=True` の ドキュメントは無視されるため,
@@ -141,10 +133,6 @@ class ApplyDiscard(Filter):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.ApplyDiscard は廃止されます. \
-        hojihca.filters.cleaners.ApplyDiscard に移行しました",
-        )
 
     def apply(self, document: Document) -> Document:
         """
@@ -272,10 +260,6 @@ class DocumentLengthFilter(Filter):
 
     def __init__(self, min_doc_len=None, max_doc_len=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DocumentLengthFilter は廃止されます. \
-        hojihca.filters.cleaners.DocumentLengthFilter に移行しました",
-        )
 
         self.min_doc_len = min_doc_len
         self.max_doc_len = max_doc_len
@@ -308,10 +292,6 @@ class NgWordsFilterJa(Filter):
 
     def __init__(self, dict_path, ignore_confused=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.NgWordsFilterJa は廃止されます. \
-        hojihca.filters.cleaners.NgWordsFilterJa に移行しました",
-        )
 
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
@@ -349,10 +329,6 @@ class NgWordsFilterEn(Filter):
 
     def __init__(self, dict_path, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.NgWordsFilterEn は廃止されます. \
-        hojihca.filters.cleaners.NgWordsFilterEn に移行しました",
-        )
 
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
@@ -377,10 +353,6 @@ class DiscardAdultContentJa(NgWordsFilterJa):
 
     def __init__(self, dict_path=BASE_PATH / "dict/adult_keywords_ja.txt", *args, **kwargs):
         super().__init__(dict_path, *args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardAdultContentJa は廃止されます. \
-        hojihca.filters.cleaners.DiscardAdultContentJa に移行しました",
-        )
 
     def apply(self, doc: Document) -> Document:
         """
@@ -407,10 +379,6 @@ class DiscardAdultContentEn(NgWordsFilterEn):
 
     def __init__(self, dict_path=BASE_PATH / "dict/adult_keywords_en.txt", *args, **kwargs):
         super().__init__(dict_path, *args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardAdultContentEn は廃止されます. \
-        hojihca.filters.cleaners.DiscardAdultContentEn に移行しました",
-        )
 
     def apply(self, doc: Document) -> Document:
         """
@@ -438,10 +406,6 @@ class DiscardDiscriminationContentJa(NgWordsFilterJa):
         **kwargs,
     ):
         super().__init__(dict_path, *args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardDiscriminationContentJa は廃止されます. \
-        hojihca.filters.cleaners.DiscardDiscriminationContentJa に移行しました",
-        )
 
     def apply(self, doc: Document) -> Document:
         """
@@ -464,10 +428,6 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
     def __init__(self, dict_path=BASE_PATH / "dict/violence_keywords_ja.txt", *args, **kwargs):
         super().__init__(dict_path, *args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardViolenceContentJa は廃止されます. \
-        hojihca.filters.cleaners.DiscardViolenceContentJa に移行しました",
-        )
 
     def apply(self, doc: Document) -> Document:
         """
@@ -490,10 +450,6 @@ class DiscardBBSComments(Filter):
 
     def __init__(self, max_allowed_num=14, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardBBSComments は廃止されます. \
-        hojihca.filters.cleaners.DiscardBBSComments に移行しました",
-        )
 
         self.max_allowed_num = max_allowed_num
         self.keyword_pat = re.compile(
@@ -531,10 +487,6 @@ class DiscardAds(Filter):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardAds は廃止されます. \
-        hojihca.filters.cleaners.DiscardAds に移行しました",
-        )
 
         self.max_allow_num = max_allowed_num
         with open(dict_path, encoding="utf-8") as fp:
@@ -566,10 +518,6 @@ class AcceptJapanese(Filter):
 
     def __init__(self, lookup_size=50, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.AcceptJapanese は廃止されます. \
-        hojihca.filters.cleaners.AcceptJapanese に移行しました",
-        )
 
         self.lookup_size = 50
         self.hiragana_katakana_pat = re.compile(r"[ぁ-んァ-ン]")
@@ -601,10 +549,6 @@ class DiscardRareKuten(Filter):
 
     def __init__(self, max_average_sentence_length=100, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.DiscardRareKuten は廃止されます. \
-        hojihca.filters.cleaners.DiscardRareKuten に移行しました",
-        )
 
         self.max_average_sentence_length = max_average_sentence_length
         self.kuten_pat = re.compile(r"。")
@@ -640,10 +584,6 @@ class HeaderFooterTagsRemover(Filter):
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.HeaderFooterTagsRemover は廃止されます. \
-        hojihca.filters.cleaners.HeaderFooterTagsRemover に移行しました",
-        )
 
         with open(dict_path) as fp:
             keywords = fp.read().split("\n")
@@ -696,10 +636,6 @@ class MaskPersonalInformation(Filter):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.MaskPersonalInformation は廃止されます. \
-        hojihca.filters.cleaners.MaskPersonalInformation に移行しました",
-        )
 
         self.phone_pat = re.compile(
             r"((0|\+\d{1,3}[- ]?)(\d{2}[- ]?\d{4}[- ]?|\d[- ]?\d{4}[- ]?|\d{2}[- ]?\d{3}[- ]?|\d{3}[- ]?\d{2}[- ]?|\d{4}[- ]?\d{1}[- ]?))\d{4}"
