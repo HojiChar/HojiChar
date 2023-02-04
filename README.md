@@ -47,7 +47,7 @@ cleaner = Compose([
 ```
 上記のフィルタでは 1. JSONから`'text'` キーの値を取得 2. 日本語文字列でなければ破棄, 3. 0字以上1000字以内の文章以外を破棄, 4. 文字列に `<hojichar>` を追加 の処理をしています.
 
-各フィルタの処理についてはフィルタの Docstrings に記載されています。
+定義済みのフィルタは、`hojichar.filters` の各フィルタです。
 
 ### ユーザー定義フィルタ
 `Filter` クラスを継承し, `apply` 関数内にフィルタの挙動を記述します.
@@ -62,14 +62,6 @@ class YourFilter(Filter):
 `apply` 関数は `hojichar.core.models.Document` 型を引数として受け取り,
 返す関数です. `Document` は文字列をカプセル化したクラスです.
 
-
-## Reference
-*準備中*
-
-各フィルタの処理内容は、`hojichar.filters` モジュール内の Docstrings に記載されています。
-
-
-
 ## 開発者向け
 
 開発用のパッケージのインストールのために,
@@ -79,7 +71,7 @@ poetry install --with dev,lint,test
 ### テスト
 テスト実行
 ```
-poetry run task test
+pytest --doctest-modules .
 ```
 で mypy と pytest のテストが実行されます.
 

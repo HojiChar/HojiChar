@@ -1,11 +1,17 @@
+"""
+.. include:: ../README.md
+"""
 from .core.composition import Compose
-from .core.inspection import Inspector
+from .core.filter_interface import Filter, TokenFilter
 from .core.models import Document, Token
 from .filters import deduplication, document_filters, token_filters, tokenization
 
 __all__ = [
+    "core",
+    "filters",
     "Compose",
-    "Inspector",
+    "Filter",
+    "TokenFilter",
     "Document",
     "Token",
     "deduplication",
