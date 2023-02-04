@@ -1,4 +1,4 @@
-from hojichar.filters.cleaners import MaskPersonalInformation
+from hojichar.filters.document_filters import MaskPersonalInformation
 
 
 class TestMaskPhoneNumber:

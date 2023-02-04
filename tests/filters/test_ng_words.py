@@ -2,7 +2,7 @@ import pathlib
 
 import hojichar
 from hojichar.core.models import Document
-from hojichar.filters.cleaners import NgWordsFilterEn, NgWordsFilterJa
+from hojichar.filters.document_filters import NgWordsFilterEn, NgWordsFilterJa
 
 BASE_PATH = pathlib.Path(hojichar.__path__[0])
 
