@@ -1,0 +1,40 @@
+name: Deploy documents
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  GenenerateDocs:
+    name: Deploy documents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --with doc
+      - name: Document generation
+        run: |
+          pdoc -o docs hojichar
+      - name: Push new docs
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          if (git diff --shortstat | grep '[0-9]'); then \
+            git add .; \
+            git commit -m "Generating docs via GitHub Actions"; \
+            git push origin HEAD:${GITHUB_REF}; \
+          fi
