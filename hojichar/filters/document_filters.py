@@ -568,14 +568,3 @@ class MaskPersonalInformation(Filter):
         text = self.email_pat.sub(r"xxxx@yyy\1", text)
         doc.text = text
         return doc
-
-
-if __name__ == "__main__":
-    import doctest
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("[%(levelname)s]%(name)s:%(message)s"))
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    doctest.testmod()

@@ -2,7 +2,6 @@
 文書の(近似)重複処理のためのモジュール.
 """
 import copy
-import logging
 from typing import Callable, List
 
 import mmh3
@@ -246,14 +245,3 @@ class LSHDeduplicator(Filter):
                 self.seen.add(lsh)
 
         return doc
-
-
-if __name__ == "__main__":
-    import doctest
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("[%(levelname)s]%(name)s:%(message)s"))
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    doctest.testmod()

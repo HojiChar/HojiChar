@@ -1,4 +1,3 @@
-import logging
 from typing import List
 
 from hojichar.core.filter_interface import Filter
@@ -74,14 +73,3 @@ class SentenceTokenizer(Filter):
                 tokens[-1] = last
 
         return tokens
-
-
-if __name__ == "__main__":
-    import doctest
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("[%(levelname)s]%(name)s:%(message)s"))
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    doctest.testmod()
