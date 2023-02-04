@@ -10,8 +10,9 @@ def test_alias_import():
     from hojichar import (
         Compose,
         Document,
-        Inspector,
+        Filter,
         Token,
+        TokenFilter,
         deduplication,
         document_filters,
         token_filters,
@@ -19,8 +20,8 @@ def test_alias_import():
     )
 
 
-def test_long_impor():
+def test_long_import():
     from hojichar.core.composition import Compose
-    from hojichar.core.inspection import Inspector
+    from hojichar.core.filter_interface import Filter, TokenFilter
     from hojichar.core.models import Document, Token
-    from hojichar.filters import document_filters
+    from hojichar.filters import deduplication, document_filters, token_filters, tokenization
