@@ -45,64 +45,6 @@ class ExampleDiscardDocumentContainKeyword(Filter):
         return document
 
 
-class BlankCharTokenizer(Filter):
-    """
-    このクラスは hojihca.filters.tokenization.BlankCharTokenizer に移動しました.
-
-    Tokenizer の実装例です.
-    ドキュメントを空白文字でトークンに分割します.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.BlankCharTokenizer は廃止されます. \
-        hojihca.filters.tokenization.BlankCharTokenizer に移行しました",
-            FutureWarning,
-        )
-
-    def apply(self, document: Document) -> Document:
-        tokens = self.tokenize(document.text)
-        document.set_tokens(tokens)
-        return document
-
-    def tokenize(self, text) -> List[str]:
-        """
-        >>> BlankCharTokenizer().tokenize("hello world")
-        ['hello', 'world']
-        """
-        return text.split()
-
-
-class MergeTokens(Filter):
-    """
-    このクラスは hojihca.filters.tokenization.MergeTokens に移動しました.
-
-    Merger の実装例です.
-    破棄されていないトークンを結合し, Document を更新します.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.MergeTokens は廃止されます. \
-        hojihca.filters.tokenization.MergeTokens に移行しました",
-            FutureWarning,
-        )
-
-    def merge(self, tokens: List[str]) -> str:
-        """
-        >>> MergeTokens().merge(["hoo", "bar"])
-        'hoobar'
-        """
-        return "".join(tokens)
-
-    def apply(self, document: Document) -> Document:
-        remained_tokens = [token.text for token in document.tokens if not token.is_rejected]
-        document.text = self.merge(remained_tokens)
-        return document
-
-
 class Identity(Filter):
     """何も変化を加えないフィルタです. テスト・デバッグに用いられます."""
 
@@ -143,48 +85,6 @@ class ApplyDiscard(Filter):
             document.text = ""
 
         return document
-
-
-class SentenceTokenizer(Filter):
-    """
-    このクラスは hojihca.filters.tokenization.SentenceTokenizer に移動しました.
-
-    日本語を想定したセンテンス単位のトーカナイザです.
-    句点`。`で文章を区切ります. これだけでは実際の日本語テキストで不十分な例が多くある
-    (句点にピリオドが用いられる, 会話のカギカッコ内で句点が用いられるなど)ため,
-    将来的には適切なセンテンス単位のトーカナイザに置き換えられるべきです.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        warnings.warn(
-            "hojichar.filters.document_filter.SentenceTokenizer は廃止されます. \
-        hojihca.filters.tokenization.SentenceTokenizer に移行しました",
-        )
-
-    def apply(self, document: Document) -> Document:
-        tokens = self.tokenize(document.text)
-        document.set_tokens(tokens)
-        return document
-
-    def tokenize(self, text) -> List[str]:
-        """
-        >>> SentenceTokenizer().tokenize("おはよう。おやすみ。ありがとう。さよなら。")
-        ['おはよう。', 'おやすみ。', 'ありがとう。', 'さよなら。']
-
-        >>> SentenceTokenizer().tokenize("さよなら。また来週")
-        ['さよなら。', 'また来週']
-        """
-        tokens = text.split("。")
-        if len(tokens) > 1:
-            if text.endswith("。"):
-                tokens = [token + "。" for token in tokens[:-1]]
-            else:
-                last = tokens[-1]
-                tokens = [token + "。" for token in tokens]
-                tokens[-1] = last
-
-        return tokens
 
 
 class DocumentNormalizer(Filter):
