@@ -28,13 +28,32 @@ jobs:
       - name: Document generation
         run: |
           pdoc -o docs hojichar
+
+      - name: Check if docs branch exists
+        id: check_docs_branch
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git fetch origin
+          if ! git show-ref --quiet refs/remotes/origin/docs; then
+            echo "::set-output name=branch_exists::false"
+          else
+            echo "::set-output name=branch_exists::true"
+          fi
+
+      - name: Create docs branch if not exists
+        if: steps.check_docs_branch.outputs.branch_exists == 'false'
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git checkout -b docs
+          git push -u origin docs
+
       - name: Push new docs
         run: |
           git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          if (git diff --shortstat | grep '[0-9]'); then \
+          if (git diff --shortstat origin/docs | grep '[0-9]'); then \
             git add .; \
             git commit -m "Generating docs via GitHub Actions"; \
-            git push origin HEAD:${GITHUB_REF}; \
+            git push origin --force HEAD:docs; \
           fi
