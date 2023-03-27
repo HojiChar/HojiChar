@@ -32,7 +32,7 @@ jobs:
       - name: Check if docs branch exists
         id: check_docs_branch
         run: |
-          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git remote set-url origin https://github-actions:${{ secrets.GH_ACTIONS_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}
           git fetch origin
           if ! git show-ref --quiet refs/remotes/origin/docs; then
             echo "::set-output name=branch_exists::false"
