@@ -35,17 +35,9 @@ jobs:
           git remote set-url origin https://github-actions:${{ secrets.GH_ACTIONS_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}
           git fetch origin
           if ! git show-ref --quiet refs/remotes/origin/docs; then
-            echo "::set-output name=branch_exists::false"
-          else
-            echo "::set-output name=branch_exists::true"
+            echo "Create docs branch"; \
+            exit 1; \
           fi
-
-      - name: Create docs branch if not exists
-        if: steps.check_docs_branch.outputs.branch_exists == 'false'
-        run: |
-          git remote set-url origin https://github-actions:${{ secrets.GH_ACTIONS_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}
-          git checkout -b docs
-          git push -u origin docs
 
       - name: Push new docs
         run: |
