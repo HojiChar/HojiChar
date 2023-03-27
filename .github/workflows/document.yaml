@@ -43,13 +43,13 @@ jobs:
       - name: Create docs branch if not exists
         if: steps.check_docs_branch.outputs.branch_exists == 'false'
         run: |
-          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git remote set-url origin https://github-actions:${{ secrets.GH_ACTIONS_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}
           git checkout -b docs
           git push -u origin docs
 
       - name: Push new docs
         run: |
-          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git remote set-url origin https://github-actions:${{ secrets.GH_ACTIONS_ACCESS_TOKEN }}@github.com/${GITHUB_REPOSITORY}
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           if (git diff --shortstat origin/docs | grep '[0-9]'); then \
