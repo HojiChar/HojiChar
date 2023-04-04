@@ -76,8 +76,7 @@ class GenerateDedupLSH(Filter):
             fingerprints.append(minhash)
 
         # 速度のためにリスト内包で書いており, 可読性低め
-        # 各 fingerprint を 符号あり -> 符号なしにして, 16進数表記にして, 下四桁をバケットサイズ個ずつ連結している
-        # HACK 符号なしにする操作は不要, 既存のハッシュ値との互換性を破壊して再実装する際は取り除いてよい
+        # 各 fingerprint 16進数表記にして, 下四桁をバケットサイズ個ずつ連結している
         # TODO Python だとオーバーヘッドが大きいので, C++ で実装しなおす
         lshs = []
         for bucket_idx in range(self.N_BUCKETS):
@@ -86,7 +85,7 @@ class GenerateDedupLSH(Filter):
                 + "+"
                 + "".join(
                     [
-                        format(fingerprints[fp_idx] & 0xFFFFFFFF, "08x")[-4:]
+                        format(fingerprints[fp_idx], "04x")[-4:]  # 下四桁をtrim
                         for fp_idx in range(
                             bucket_idx * self.BUCKET_SIZE, (bucket_idx + 1) * self.BUCKET_SIZE
                         )
@@ -105,75 +104,75 @@ class GenerateDedupLSH(Filter):
 
         >>> d1 = GenerateDedupLSH().apply(d1)
         >>> pprint(d1.dedup_lsh)
-        ['0+07ad0b7b163f434643387f3f4799a2d466bccd0c',
-         '1+7369a7be65e9f41aa5088d4cebc7cbd4a506d702',
-         '2+f62bc7aca49ef1ab0765c99d83e0ab5c4bab55b4',
-         '3+a14eb2369a28d2effc886447c5c43cefd1dd4c99',
-         '4+05598bc382a7b67d7740d416585f69c3c82ed7db',
-         '5+4bcfd982910ba7034476fd9ba1cf04b1688265e1',
-         '6+5a0d9f2c4ae08e5a695f279e042ccb1679f7fc95',
-         '7+f810d30d918fb4b0a7df4dcc7fa76ab723250ebc',
-         '8+8da61607a3de16c10f3e70498211990973c255c6',
-         '9+c38f4fb17626f9cbbc4470424f3a3528a471a7c8',
-         '10+b2b18747bae648b8f0ea62eed439605aea50c22c',
-         '11+948f27853abed61d2e18e99e546975d28f74b7a9',
-         '12+1c61e34046c00a32652af1a9532013cb43de6ab6',
-         '13+610cf5dd9cd7bc25c92eb43a2238827c4313052d',
-         '14+7fc7bbcb7d94bc531749d237d4c4d413bf1c3885',
-         '15+f945ded8493498677c52c36509d879c6b0f5b765',
-         '16+acbff8ad0f7bc356b953c95a4876dd5d4fd547d0',
-         '17+c9c0263cfb4217ccf246a4d39e88fbad022a89b2',
-         '18+cb5f7a0e4182922de50f742beb36da5d2b7f5c42',
-         '19+b4557e514254043bebfe94925b563ecf79e36100']
+        ['0+f853f485e9c1bcbabcc880c1b8675d2c994432f4',
+         '1+8c9758429a170be65af872b41439342c5afa28fe',
+         '2+09d538545b620e55f89b36637c2054a4b455aa4c',
+         '3+5eb24dca65d82d1103789bb93a3cc3112e23b367',
+         '4+faa7743d7d59498388c02beaa7a1963d37d22825',
+         '5+b431267e6ef558fdbb8a02655e31fb4f977e9a1f',
+         '6+a5f360d4b52071a696a1d862fbd434ea8609036b',
+         '7+07f02cf36e714b505821b23480599549dcdbf144',
+         '8+725ae9f95c22e93ff0c28fb77def66f78c3eaa3a',
+         '9+3c71b04f89da063543bc8fbeb0c6cad85b8f5838',
+         '10+4d4f78b9451ab7480f169d122bc79fa615b03dd4',
+         '11+6b71d87bc54229e3d1e81662ab978a2e708c4857',
+         '12+e39f1cc0b940f5ce9ad60e57ace0ec35bc22954a',
+         '13+9ef40a23632943db36d24bc6ddc87d84bcedfad3',
+         '14+80394435826c43ade8b72dc92b3c2bed40e4c77b',
+         '15+06bb2128b6cc679983ae3c9bf628863a4f0b489b',
+         '16+53410753f0853caa46ad36a6b78a22a3b02bb830',
+         '17+3640d9c404bee8340dba5b2d61780453fdd6764e',
+         '18+34a185f2be7e6dd31af18bd514ca25a3d481a3be',
+         '19+4bab81afbdacfbc514026b6ea4aac131861d9f00']
 
         >>> d2 = GenerateDedupLSH().apply(d2)
         >>> pprint(d2.dedup_lsh)
-        ['0+07ad0b7b163f434608967f3f4799a2d466bccd0c',
-         '1+7369d2c065e9f41a27ec8d4cebc7cbd4a50608a8',
-         '2+d31ac7aca49e4e7a0765c99d6335ab5c4bab55b4',
-         '3+40bcb2369a28d2effc88fe8e01b13cefd1dd4c99',
-         '4+05598bc382a72b497740d416585f69c3d702d7db',
-         '5+4bcfd982910ba7034476fd9ba1cf04b1688265e1',
-         '6+5a0d4eb74ae08e5a695f279e0f44cb1679f7fc95',
-         '7+f810d30d918fb4b0a2604dcc7fa76ab723250ebc',
-         '8+8da6c577a3de16c10f3e70498211053b73c255c6',
-         '9+c38f4fb17626f9cbbc4470424f3a3528a471a7c8',
-         '10+ac8e8747e42d48b820c262ee066ebedeea50c22c',
-         '11+948f27853abed61dbc307e28cce275d200d7b7a9',
-         '12+1c613c22f78e39fbbfedf1a95320e8c543de6ab6',
-         '13+5020f5dd9cd7bc25c92e4a542238827c4313052d',
-         '14+e4aebbcb7d94bc533eced237d4c4d413bf1c3885',
-         '15+f9451c70493498677c5276113a9400906207b765',
-         '16+acbff8ad8a12ba10b953f42d35dfdd5d4fd547d0',
-         '17+c9c0263cfb427852f246a4d39e88fbadf4d889b2',
-         '18+36780a524182439de50f742bd3e9da5d2b7f22b8',
-         '19+b4557e51e775eeb64650949276973ecf79e3a451']
+        ['0+f853f485e9c1bcbaf76a80c1b8675d2c994432f4',
+         '1+8c972d409a170be6d81472b41439342c5afaf758',
+         '2+2ce638545b62b186f89b36639ccb54a4b455aa4c',
+         '3+bf444dca65d82d1103780172fe4fc3112e23b367',
+         '4+faa7743d7d59d4b788c02beaa7a1963d28fe2825',
+         '5+b431267e6ef558fdbb8a02655e31fb4f977e9a1f',
+         '6+a5f3b149b52071a696a1d862f0bc34ea8609036b',
+         '7+07f02cf36e714b505da0b23480599549dcdbf144',
+         '8+725a3a895c22e93ff0c28fb77deffac58c3eaa3a',
+         '9+3c71b04f89da063543bc8fbeb0c6cad85b8f5838',
+         '10+537278b91bd3b748df3e9d12f992412215b03dd4',
+         '11+6b71d87bc54229e343d081d8331e8a2eff294857',
+         '12+e39fc3de0872c60540130e57ace0173bbc22954a',
+         '13+afe00a23632943db36d2b5acddc87d84bcedfad3',
+         '14+1b524435826c43adc1322dc92b3c2bed40e4c77b',
+         '15+06bbe390b6cc679983ae89efc56cff709df9489b',
+         '16+5341075375ee45f046ad0bd3ca2122a3b02bb830',
+         '17+3640d9c404be87ae0dba5b2d617804530b28764e',
+         '18+c988f5aebe7ebc631af18bd52c1725a3d481dd48',
+         '19+4bab81af188b114ab9b06b6e8969c131861d5baf']
 
 
         全く異なる文書に対しては、いずれも全く異なるハッシュを返します。
         >>> d3 = Document("祇園精舎の鐘の声、諸行無常の響きあり。")
         >>> d3 = GenerateDedupLSH().apply(d3)
         >>> pprint(d3.dedup_lsh)
-        ['0+6e37fad4c02c4e46f408fe2f1c858d3f848932a9',
-         '1+14134eb5f17113a1eebdd2d14913b29661d91caa',
-         '2+e8ff733fe01200bc8115d1b2fea8af17659797b6',
-         '3+7780500e8dbf9658ae3073fc59fbf38170bd221d',
-         '4+58e8071379406406bc159482d9d55c6ef3e407c5',
-         '5+fceac9bca8ec3f137ee165977ad16cc26f84b0ff',
-         '6+ca69466d7ba1d4df65b78aca2a48c0477d4191f4',
-         '7+bc368e0c2dd50adb80802a3968259f5d50c864ee',
-         '8+58afee22cdbed89dec223b2689fb46f81e4b3fc4',
-         '9+0e13a8555203fa6c8c7c15fb3cbcddc338bacad8',
-         '10+6b8d0c47d429ccd01c5c3ac76f2d2c001c40e1b1',
-         '11+216137f870a95ed51cd116e009faa68f3520372f',
-         '12+dedd4a4ba549f3c5655d197a73e594525eea44fb',
-         '13+21b499a6debcbf8c339c6e9b390aa5ebfc866ec8',
-         '14+32a82d880e2677cc06d32f4a0309220e299e1ad8',
-         '15+e2afc748a373db953fd26e07cc5ac66adfbe7f4b',
-         '16+5cc6a70dcccb97aaeb7dc0d26bb42f7610c0e535',
-         '17+316905fb4aa3a81140e0b387b55fdef29e8dc2a2',
-         '18+42277ad49a2c2b803909d8c34cad688ea5b04fb7',
-         '19+53a44ce086b43d32e06c3f66233d566a5927793e']
+        ['0+91c9052c3fd4b1ba0bf801d1e37b72c17b77cd57',
+         '1+ebedb14b0e8fec5f11432d2fb6ed4d6a9e27e356',
+         '2+17018cc11feeff447eeb2e4e015850e99a69684a',
+         '3+8880aff2724169a851d08c04a6050c7f8f43dde3',
+         '4+a718f8ed86c09bfa43eb6b7e262ba3920c1cf83b',
+         '5+031636445714c0ed811f9a69852f933e907c4f01',
+         '6+3597b993845f2b219a497536d5b83fb982bf6e0c',
+         '7+43ca71f4d22bf5257f80d5c797db60a3af389b12',
+         '8+a75111de3242276313dec4da7605b908e1b5c03c',
+         '9+f1ed57abadfd05947384ea05c344223dc7463528',
+         '10+9473f3b92bd73330e3a4c53990d3d400e3c01e4f',
+         '11+de9fc8088f57a12be32fe920f6065971cae0c8d1',
+         '12+2123b5b55ab70c3b9aa3e6868c1b6baea116bb05',
+         '13+de4c665a21444074cc649165c6f65a15037a9138',
+         '14+cd58d278f1da8834f92dd0b6fcf7ddf2d662e528',
+         '15+1d5138b85c8d246bc02e91f933a63996204280b5',
+         '16+a33a58f33335685614833f2e944cd08aef401acb',
+         '17+ce97fa05b55d57efbf204c794aa1210e61733d5e',
+         '18+bdd9852c65d4d480c6f7273db35397725a50b049',
+         '19+ac5cb320794cc2ce1f94c09adcc3a996a6d986c2']
         """
         lshs = self.calc_lsh(doc.text)
         doc.dedup_lsh = lshs
