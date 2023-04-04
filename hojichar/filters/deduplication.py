@@ -19,13 +19,21 @@ class GenerateDedupLSH(Filter):
     重複処理を実施する場合は、本フィルタを `hojichar.filters.deduplication.LSHDeduplicator` の前に適用します。
     """
 
-    N_MINHASH = 200
-    N_GRAM = 5
-    N_BUCKETS = 20
-    BUCKET_SIZE = 10
-
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        n_minhash=200,
+        n_gram=5,
+        n_buckets=20,
+        bucket_size=10,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
+        assert n_minhash == n_buckets * bucket_size
+        self.N_MINHASH = n_minhash
+        self.N_GRAM = n_gram
+        self.N_BUCKETS = n_buckets
+        self.BUCKET_SIZE = bucket_size
 
     @staticmethod
     def n_gram_tokenize(text: str, n: int) -> List[str]:
