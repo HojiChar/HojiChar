@@ -30,11 +30,22 @@ def argparser() -> argparse.Namespace:
         "--profile",
         "-p",
         required=True,
-        metavar="your_filter.py",
+        metavar="<your_filter.py>",
         help="Path to a Python file that implements your custom filter.\
             hojichar.Compose must be defined as FILTER variable in the file.",
     )
-    parser.add_argument("--dump-stats", default=None, help="Dump statistics to a file.")
+    parser.add_argument(
+        "--dump-stats",
+        default=None,
+        metavar="<path to stats.json>",
+        help="Dump statistics to a file.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit if an exception occurs during filtering.\
+            Useful for debugging custom filters.",
+    )
     args = parser.parse_args()
     return args
 
@@ -70,15 +81,20 @@ def load_compose_from_file(profile_path: str) -> hojichar.Compose:
         raise NotImplementedError("FILTER must be implemented in the profile.")
 
 
-def process_iter(input_iter: Iterator[str], filter: hojichar.Compose) -> Iterator[str]:
+def process_iter(
+    input_iter: Iterator[str], filter: hojichar.Compose, strict: bool
+) -> Iterator[str]:
     for line in input_iter:
         try:
             doc = filter.apply(hojichar.Document(line))
             if not doc.is_rejected:
                 yield doc.text
         except Exception as e:
-            logger.error(f"{e}. Skip processing the line: {line}")
-            continue
+            if strict:
+                raise e
+            else:
+                logger.error(f"Caught {type(e)}. Skip processing the line: `{line}`")
+                continue
 
 
 def main() -> None:
@@ -88,7 +104,7 @@ def main() -> None:
     FILTER = load_compose_from_file(args.profile)
 
     input_iter = stdin_iter()
-    out_str_iter = process_iter(input_iter, FILTER)
+    out_str_iter = process_iter(input_iter, FILTER, args.strict)
     stdout_iter(out_str_iter)
     finalize()
     if args.dump_stats:
