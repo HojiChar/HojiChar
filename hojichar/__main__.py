@@ -55,9 +55,12 @@ def load_compose_from_file(profile_path: str) -> hojichar.Compose:
     profile = Path(profile_path)
     module_name = profile.stem
     spec = importlib.util.spec_from_file_location(module_name, profile)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+    else:
+        raise ModuleNotFoundError(f"Cannot loading {profile_path}")
     if hasattr(module, "FILTER"):
         filter = getattr(module, "FILTER")
         if not isinstance(filter, hojichar.Compose):
