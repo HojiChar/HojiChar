@@ -102,7 +102,7 @@ def process_iter(
 
 def main() -> None:
     global FILTER
-    signal.signal(signal.SIGINT, handler=sigint_handler)
+    signal.signal(signal.SIGINT, sigint_handler)
     args = argparser()
     FILTER = load_compose_from_file(args.profile)
 
