@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterator
 
 import hojichar
-from hojichar.utils.io_iter import stdin_iter, stdout_iter
+from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 
 FILTER: hojichar.Compose
 logger = logging.getLogger("hojichar.__main__")
@@ -33,6 +33,9 @@ def argparser() -> argparse.Namespace:
         metavar="<your_filter.py>",
         help="Path to a Python file that implements your custom filter.\
             hojichar.Compose must be defined as FILTER variable in the file.",
+    )
+    parser.add_argument(
+        "--output", "-o", default=None, help="Output file path. If not given, stdout is used."
     )
     parser.add_argument(
         "--dump-stats",
@@ -105,7 +108,11 @@ def main() -> None:
 
     input_iter = stdin_iter()
     out_str_iter = process_iter(input_iter, FILTER, args.strict)
-    stdout_iter(out_str_iter)
+    if args.output:
+        with open(args.output, "w") as fp:
+            fileout_from_iter(out_str_iter, fp)
+    else:
+        stdout_from_iter(out_str_iter)
     finalize()
     if args.dump_stats:
         with open(args.dump_stats, "w") as fp:

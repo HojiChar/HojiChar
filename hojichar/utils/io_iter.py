@@ -1,6 +1,6 @@
 import io
 import sys
-from typing import Iterator
+from typing import Iterator, TextIO
 
 
 def stdin_iter() -> Iterator:
@@ -12,7 +12,7 @@ def stdin_iter() -> Iterator:
     return (line.rstrip("\n") for line in stdin)
 
 
-def stdout_iter(iter: Iterator) -> None:
+def stdout_from_iter(iter: Iterator) -> None:
     stdout = io.TextIOWrapper(
         buffer=sys.stdout.buffer,
         line_buffering=True,
@@ -22,3 +22,8 @@ def stdout_iter(iter: Iterator) -> None:
             stdout.write(line + "\n")
     except BrokenPipeError:
         sys.exit(1)
+
+
+def fileout_from_iter(iter: Iterator, fp: TextIO) -> None:
+    for line in iter:
+        fp.write(line + "\n")
