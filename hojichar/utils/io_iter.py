@@ -3,7 +3,7 @@ import sys
 from typing import Iterator, TextIO
 
 
-def stdin_iter() -> Iterator:
+def stdin_iter() -> Iterator[str]:
     stdin = io.TextIOWrapper(
         buffer=sys.stdin.buffer,
         encoding="utf-8",
@@ -12,7 +12,7 @@ def stdin_iter() -> Iterator:
     return (line.rstrip("\n") for line in stdin)
 
 
-def stdout_from_iter(iter: Iterator) -> None:
+def stdout_from_iter(iter: Iterator[str]) -> None:
     stdout = io.TextIOWrapper(
         buffer=sys.stdout.buffer,
         line_buffering=True,
@@ -24,6 +24,6 @@ def stdout_from_iter(iter: Iterator) -> None:
         sys.exit(1)
 
 
-def fileout_from_iter(iter: Iterator, fp: TextIO) -> None:
+def fileout_from_iter(iter: Iterator[str], fp: TextIO) -> None:
     for line in iter:
         fp.write(line + "\n")
