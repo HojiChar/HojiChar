@@ -35,6 +35,7 @@ def load_filter_from_file(profile_path: PathLike) -> hojichar.Compose:
     Returns:
         hojichar.Compose:
     """
+    sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FILTER"):
         filter = getattr(module, "FILTER")
@@ -46,6 +47,7 @@ def load_filter_from_file(profile_path: PathLike) -> hojichar.Compose:
 
 
 def load_factory_from_file(profile_path: PathLike) -> Callable[[Optional[Any]], hojichar.Compose]:
+    sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FACTORY"):
         factory = getattr(module, "FACTORY")

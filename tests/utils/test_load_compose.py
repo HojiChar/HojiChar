@@ -1,3 +1,5 @@
+import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -31,9 +33,13 @@ def test_load_filter_from_file_success(mock_dir):
 
 
 def test_load_module_load_another(mock_dir):
+    # HACK doctest loads *.py file and cause ModuleNotFoundError.
+    original = mock_dir / "mock_filter_load_another_module"
     fpath = mock_dir / "mock_filter_load_another_module.py"
+    shutil.copyfile(original, fpath)
     filter = load_filter_from_file(fpath)
     assert filter("") == "success"
+    os.remove(fpath)
 
 
 def test_load_filter_from_file_notimplemented(mock_dir):
