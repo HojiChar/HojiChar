@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from hojichar.utils.load_compose import (
+    _check_args_num_mismatch,
     _load_module,
-    check_args_num_mismatch,
     load_compose,
     load_factory_from_file,
     load_filter_from_file,
@@ -113,5 +113,5 @@ def test_load_compose_factory(mock_dir):
 
 
 def test_check_args_num_mismatch(caplog):
-    check_args_num_mismatch(3)
+    _check_args_num_mismatch(3)
     assert "Warning: 3 arguments are ignored." in caplog.text
