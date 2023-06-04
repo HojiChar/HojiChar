@@ -1,14 +1,13 @@
 import argparse
-import importlib.util
 import json
 import logging
 import signal
 import sys
-from pathlib import Path
-from typing import Iterator
 
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
+from hojichar.utils.load_compose import get_compose
+from hojichar.utils.process import process_iter
 
 FILTER: hojichar.Compose
 logger = logging.getLogger("hojichar.__main__")
@@ -44,70 +43,29 @@ def argparser() -> argparse.Namespace:
         help="Dump statistics to a file.",
     )
     parser.add_argument(
-        "--strict",
+        "--exit-on-error",
         action="store_true",
         help="Exit if an exception occurs during filtering.\
             Useful for debugging custom filters.",
     )
+    parser.add_argument("--args", default=[], nargs="+", help="Argument for factory")
     args = parser.parse_args()
     return args
-
-
-def load_compose_from_file(profile_path: str) -> hojichar.Compose:
-    """_summary_
-
-    Args:
-        profile_path (str): Path to a Python file that implements your custom filter.
-        hojichar.Compose must be defined as FILTER variable in the file.
-
-    Raises:
-        NotImplementedError:
-
-    Returns:
-        hojichar.Compose:
-    """
-    profile = Path(profile_path)
-    module_name = profile.stem
-    spec = importlib.util.spec_from_file_location(module_name, profile)
-    if spec and spec.loader:
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-    else:
-        raise ModuleNotFoundError(f"Cannot loading {profile_path}")
-    if hasattr(module, "FILTER"):
-        filter = getattr(module, "FILTER")
-        if not isinstance(filter, hojichar.Compose):
-            raise TypeError("FILTER must be hojichar.Compose object.")
-        return filter
-    else:
-        raise NotImplementedError("FILTER must be implemented in the profile.")
-
-
-def process_iter(
-    input_iter: Iterator[str], filter: hojichar.Compose, strict: bool
-) -> Iterator[str]:
-    for line in input_iter:
-        try:
-            doc = filter.apply(hojichar.Document(line))
-            if not doc.is_rejected:
-                yield doc.text
-        except Exception as e:
-            if strict:
-                raise e
-            else:
-                logger.error(f"Caught {type(e)}. Skip processing the line: `{line}`")
-                continue
 
 
 def main() -> None:
     global FILTER
     signal.signal(signal.SIGINT, sigint_handler)
     args = argparser()
-    FILTER = load_compose_from_file(args.profile)
+    FILTER = get_compose(
+        args.profile,
+        *tuple(args.args),
+    )
 
     input_iter = stdin_iter()
-    out_str_iter = process_iter(input_iter, FILTER, args.strict)
+    out_str_iter = process_iter(
+        input_iter=input_iter, filter=FILTER, exit_on_error=args.exit_on_error
+    )
     if args.output:
         with open(args.output, "w") as fp:
             fileout_from_iter(out_str_iter, fp)
