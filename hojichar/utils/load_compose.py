@@ -1,16 +1,17 @@
 import importlib.util
 import logging
 import sys
+from os import PathLike
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import hojichar
 
 logger = logging.getLogger(__name__)
 
 
-def _load_module(path: str) -> ModuleType:
+def _load_module(path: PathLike) -> ModuleType:
     path_obj = Path(path)
     module_name = path_obj.stem
     spec = importlib.util.spec_from_file_location(module_name, path_obj)
@@ -18,12 +19,10 @@ def _load_module(path: str) -> ModuleType:
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
-    else:
-        raise ModuleNotFoundError(f"Cannot loading {path}")
     return module
 
 
-def load_compose_from_file(profile_path: str) -> hojichar.Compose:
+def load_filter_from_file(profile_path: PathLike) -> hojichar.Compose:
     """_summary_
 
     Args:
@@ -46,7 +45,7 @@ def load_compose_from_file(profile_path: str) -> hojichar.Compose:
         raise NotImplementedError("FILTER is not defined in the profile.")
 
 
-def load_compose_factory(profile_path: str) -> Callable[[Any], hojichar.Compose]:
+def load_factory_from_file(profile_path: PathLike) -> Callable[[Optional[Any]], hojichar.Compose]:
     module = _load_module(profile_path)
     if hasattr(module, "FACTORY"):
         factory = getattr(module, "FACTORY")
@@ -55,21 +54,23 @@ def load_compose_factory(profile_path: str) -> Callable[[Any], hojichar.Compose]
         raise NotImplementedError("FACTORY is not defined in the profile")
 
 
-def load_parametrized_compose_from_file(profile_path: str, *factroy_args: str) -> hojichar.Compose:
-    factory = load_compose_factory(profile_path)
-    filter = factory(*factroy_args)
+def load_parametrized_filter_from_file(
+    profile_path: PathLike, *factory_args: str
+) -> hojichar.Compose:
+    factory = load_factory_from_file(profile_path)
+    filter = factory(*factory_args)
     return filter
 
 
-def get_compose(profile_path: str, *factroy_args: str) -> hojichar.Compose:
+def load_compose(profile_path: PathLike, *factroy_args: str) -> hojichar.Compose:
     try:
-        filter = load_compose_from_file(profile_path)
-        check_args_num_mismatch(0, len(factroy_args))
+        filter = load_filter_from_file(profile_path)
+        check_args_num_mismatch(len(factroy_args))
         return filter
     except NotImplementedError:
-        return load_parametrized_compose_from_file(profile_path, *factroy_args)
+        return load_parametrized_filter_from_file(profile_path, *factroy_args)
 
 
-def check_args_num_mismatch(expected_num_args: int, actual_num_args: int):
-    if expected_num_args != actual_num_args:
-        logger.warning(f"{actual_num_args} arguments are ignored.")
+def check_args_num_mismatch(num_args: int) -> None:
+    if num_args > 0:
+        logger.warning(f"Warning: {num_args} arguments are ignored.")

@@ -6,7 +6,7 @@ import sys
 
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
-from hojichar.utils.load_compose import get_compose
+from hojichar.utils.load_compose import load_compose
 from hojichar.utils.process import process_iter
 
 FILTER: hojichar.Compose
@@ -48,7 +48,9 @@ def argparser() -> argparse.Namespace:
         help="Exit if an exception occurs during filtering.\
             Useful for debugging custom filters.",
     )
-    parser.add_argument("--args", default=[], nargs="+", help="Argument for factory")
+    parser.add_argument(
+        "--args", default=[], nargs="+", help="Argument for the profile which receives arguments."
+    )
     args = parser.parse_args()
     return args
 
@@ -57,7 +59,7 @@ def main() -> None:
     global FILTER
     signal.signal(signal.SIGINT, sigint_handler)
     args = argparser()
-    FILTER = get_compose(
+    FILTER = load_compose(
         args.profile,
         *tuple(args.args),
     )
