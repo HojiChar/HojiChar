@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import re
+import time
 import unicodedata
 
 import hojichar
@@ -80,6 +81,24 @@ class ApplyDiscard(Filter):
         if document.is_rejected:
             document.text = ""
 
+        return document
+
+
+class Sleep(Filter):
+    """
+    デバッグ用のフィルタです. 指定秒スリープします.
+    """
+
+    def __init__(self, time: float = 1.0, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.time = time
+
+    def apply(self, document):
+        """
+        >>> Sleep(0.1)('hello')  # After 0.1 seconds,
+        'hello'
+        """
+        time.sleep(self.time)
         return document
 
 

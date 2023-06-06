@@ -8,6 +8,9 @@ readme = "README.md"
 homepage = "https://github.com/HojiChar/HojiChar"
 repository = "https://github.com/HojiChar/HojiChar"
 
+[tool.poetry.scripts]
+hojichar = "hojichar.__main__:main"
+
 [tool.poetry.dependencies]
 python = "^3.8"
 numpy = "^1.23.4"
