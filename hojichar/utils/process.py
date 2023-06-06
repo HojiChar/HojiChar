@@ -1,7 +1,7 @@
 import logging
 import os
 from contextlib import redirect_stdout
-from typing import Iterator, TextIO
+from typing import Iterator, Optional, TextIO
 
 import hojichar
 
@@ -12,7 +12,7 @@ def process_iter(
     input_iter: Iterator[str],
     filter: hojichar.Compose,
     exit_on_error: bool,
-    stdout: TextIO = open(os.devnull, "w"),
+    stdout_fp: Optional[TextIO] = None,
 ) -> Iterator[str]:
     """
     Getting an iterator of string, processing by given hojichar.Compose filter,
@@ -29,7 +29,9 @@ def process_iter(
     Yields:
         Iterator[str]: Processed text
     """
-    with redirect_stdout(stdout):
+    if stdout_fp is None:
+        stdout_fp = open(os.devnull, "w")
+    with redirect_stdout(stdout_fp):
         for line in input_iter:
             try:
                 doc = filter.apply(hojichar.Document(line))

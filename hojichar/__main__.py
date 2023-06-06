@@ -4,7 +4,6 @@ import logging
 import os
 import signal
 import sys
-from contextlib import redirect_stdout
 
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
@@ -63,8 +62,7 @@ def argparser() -> argparse.Namespace:
         "--redirect-stdout",
         default=None,
         help="This option is used to redirect standard output to a specified file during the \
-        profile. By default, it redirects to /dev/null. \
-        If 'stdout' is set, it outputs to standard output.",
+        profile. By default, it redirects to /dev/null.",
     )
     args = parser.parse_args()
     return args
@@ -74,17 +72,18 @@ def main() -> None:
     global FILTER
     signal.signal(signal.SIGINT, sigint_handler)
     args = argparser()
+    if args.redirect_stdout is None:
+        stdout_fp = open(os.devnull, "w")
+    else:
+        stdout_fp = open(args.redirect_stdout, "w")
+
     FILTER = load_compose(
         args.profile,
         *tuple(args.args),
     )
-
     input_iter = stdin_iter()
     out_str_iter = process_iter(
-        input_iter=input_iter,
-        filter=FILTER,
-        exit_on_error=args.exit_on_error,
-        stdout=sys.stdout if args.redirect_stdout == "stdout" else args.redirect_stdout,
+        input_iter=input_iter, filter=FILTER, exit_on_error=args.exit_on_error, stdout_fp=stdout_fp
     )
     if args.output:
         with open(args.output, "w") as fp:
