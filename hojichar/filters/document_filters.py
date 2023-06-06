@@ -161,6 +161,22 @@ class JSONLoader(Filter):
         return document
 
 
+class JSONDumper(Filter):
+    """
+    Doucment.text の値を, エントリ名が "text" という名前の Json に格納します.
+    出力が json lines 欲しいときに Compose の出力前に使用します.
+    """
+
+    def apply(self, document: Document) -> Document:
+        """
+        >>> JSONDumper()("hojichar")
+        '{"text": "hojichar"}'
+        """
+        text = document.text
+        document.text = json.dumps({"text": text}, ensure_ascii=False)
+        return document
+
+
 class DocumentLengthFilter(Filter):
     """
     `min_doc_len`, `max_doc_len` で指定した上限・下限の範囲内にないドキュメントを破棄します.
