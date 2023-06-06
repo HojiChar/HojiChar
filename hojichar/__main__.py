@@ -50,7 +50,7 @@ def argparser() -> argparse.Namespace:
         "--dump-stats",
         default=None,
         metavar="<path to stats.json>",
-        help="Dump statistics to a file.",
+        help="Dump statistics to file. If the file exists, it will be appended.",
     )
     parser.add_argument(
         "--exit-on-error",
@@ -92,8 +92,8 @@ def main() -> None:
         stdout_from_iter(out_str_iter)
     finalize()
     if args.dump_stats:
-        with open(args.dump_stats, "w") as fp:
-            fp.write(json.dumps(FILTER.statistics))
+        with open(args.dump_stats, "a") as fp:
+            fp.write(json.dumps(FILTER.statistics) + "\n")
 
 
 if __name__ == "__main__":
