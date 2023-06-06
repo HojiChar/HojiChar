@@ -1,8 +1,10 @@
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
+from contextlib import redirect_stdout
 
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
@@ -29,12 +31,21 @@ def argparser() -> argparse.Namespace:
         "--profile",
         "-p",
         required=True,
-        metavar="<your_filter.py>",
-        help="Path to a Python file that implements your custom filter.\
-            hojichar.Compose must be defined as FILTER variable in the file.",
+        metavar="<profile.py>",
+        help="Path to a Python file that implements your custom filter.",
     )
     parser.add_argument(
-        "--output", "-o", default=None, help="Output file path. If not given, stdout is used."
+        "--args",
+        default=[],
+        nargs="+",
+        help="Pass additional arguments to the profile.\
+            Use it like `--args arg1 arg2` etc. The arguments should be space-separated.",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Specifies the path for the output file. Defaults to standard output.",
     )
     parser.add_argument(
         "--dump-stats",
@@ -49,7 +60,11 @@ def argparser() -> argparse.Namespace:
             Useful for debugging custom filters.",
     )
     parser.add_argument(
-        "--args", default=[], nargs="+", help="Argument for the profile which receives arguments."
+        "--redirect-stdout",
+        default=None,
+        help="This option is used to redirect standard output to a specified file during the \
+        profile. By default, it redirects to /dev/null. \
+        If 'stdout' is set, it outputs to standard output.",
     )
     args = parser.parse_args()
     return args
@@ -66,7 +81,10 @@ def main() -> None:
 
     input_iter = stdin_iter()
     out_str_iter = process_iter(
-        input_iter=input_iter, filter=FILTER, exit_on_error=args.exit_on_error
+        input_iter=input_iter,
+        filter=FILTER,
+        exit_on_error=args.exit_on_error,
+        stdout=sys.stdout if args.redirect_stdout == "stdout" else args.redirect_stdout,
     )
     if args.output:
         with open(args.output, "w") as fp:

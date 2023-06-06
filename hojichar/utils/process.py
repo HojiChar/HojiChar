@@ -1,5 +1,7 @@
 import logging
-from typing import Iterator
+import os
+from contextlib import redirect_stdout
+from typing import Iterator, TextIO
 
 import hojichar
 
@@ -10,6 +12,7 @@ def process_iter(
     input_iter: Iterator[str],
     filter: hojichar.Compose,
     exit_on_error: bool,
+    stdout: TextIO = open(os.devnull, "w"),
 ) -> Iterator[str]:
     """
     Getting an iterator of string, processing by given hojichar.Compose filter,
@@ -26,14 +29,15 @@ def process_iter(
     Yields:
         Iterator[str]: Processed text
     """
-    for line in input_iter:
-        try:
-            doc = filter.apply(hojichar.Document(line))
-            if not doc.is_rejected:
-                yield doc.text
-        except Exception as e:
-            if exit_on_error:
-                raise e
-            else:
-                logger.error(f"Caught {type(e)}. Skip processing the line: `{line}`")
-                continue
+    with redirect_stdout(stdout):
+        for line in input_iter:
+            try:
+                doc = filter.apply(hojichar.Document(line))
+                if not doc.is_rejected:
+                    yield doc.text
+            except Exception as e:
+                if exit_on_error:
+                    raise e
+                else:
+                    logger.error(f"Caught {type(e)}. Skip processing the line: `{line}`")
+                    continue
