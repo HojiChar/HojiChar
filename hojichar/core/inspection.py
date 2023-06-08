@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import time
-from typing import List
+from typing import Any, List
 
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Inspector(Filter):
-    def __init__(self, target: str, ignore_filtered, *args, **kwargs):
+    def __init__(self, target: str, ignore_filtered: bool, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("hojichar.Inspector")
         self.target = target
@@ -26,7 +26,7 @@ class Inspector(Filter):
             document.is_rejected = False
         return document
 
-    def inspect(self, document) -> None:
+    def inspect(self, document: Document) -> None:
         self.is_rejected = False
         self.is_rejected = document.is_rejected
         self.bytes = len(document.text.encode("utf-8"))
@@ -70,7 +70,7 @@ class DocStatistics:
 
 
 class StatisticsCounter:
-    def __init__(self, inspectors: List[Inspector], ignore_filtered):
+    def __init__(self, inspectors: List[Inspector], ignore_filtered: bool) -> None:
         counts = dict()
         for inspector in inspectors:
             counts[inspector.target] = FilterStatistics()
