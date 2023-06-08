@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from hojichar.core.models import Document, Token
 
@@ -22,7 +23,7 @@ class Filter:
     If you apply the filter to tokens, you can use `TokenFilter` class.
     """
 
-    def __init__(self, p: float = 1, *args, **kwargs):
+    def __init__(self, p: float = 1, *args: Any, **kwargs: Any) -> None:
         """
         Parameters
         ----------
@@ -75,7 +76,7 @@ class TokenFilter:
     must inherit from this class.
     """
 
-    def __init__(self, p=1, *args, **kwargs):
+    def __init__(self, p: float = 1, *args: Any, **kwargs: Any) -> None:
         self.name = self.__class__.__name__
         self.logger = logging.getLogger("hojichar.token_filters." + self.name)
         assert 0 <= p <= 1
