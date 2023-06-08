@@ -132,19 +132,21 @@ It might be helpful to add examples demonstrating the use of `Compose
 - `hojichar --help`
 
   ```man
-  usage: hojichar [-h] --profile <your_filter.py> [--output OUTPUT] [--dump-stats <path to stats.json>] [--exit-on-error] [--args ARGS [ARGS ...]]
-  
-  options:
+
+    options:
     -h, --help            show this help message and exit
-    --profile <your_filter.py>, -p <your_filter.py>
-                          Path to a Python file that implements your custom filter. hojichar.Compose must be defined as FILTER variable in the file.
-    --output OUTPUT, -o OUTPUT
-                          Output file path. If not given, stdout is used.
-    --dump-stats <path to stats.json>
-                          Dump statistics to a file.
-    --exit-on-error       Exit if an exception occurs during filtering. Useful for debugging custom filters.
+    --profile <profile.py>, -p <profile.py>
+                            Path to a Python file that implements your custom filter.
     --args ARGS [ARGS ...]
-                          Argument for the profile which receives arguments.
+                            Pass additional arguments to the profile. Use it like `--args arg1 arg2` etc. The arguments should be space-separated.
+    --output OUTPUT, -o OUTPUT
+                            Specifies the path for the output file. Defaults to standard output.
+    --dump-stats <path to stats.json>
+                            Dump statistics to file. If the file exists, it will be appended.
+    --exit-on-error       Exit if an exception occurs during filtering. Useful for debugging custom filters.
+    --redirect-stdout REDIRECT_STDOUT
+                            This option is used to redirect standard output to a specified file during the profile. By default, it redirects to /dev/null.
+
   ```
 
 ## Definition of Profile
@@ -233,7 +235,7 @@ It might be helpful to add examples demonstrating the use of `Compose
   FACTORY = callback
   ```
 
-  - Using `FACTORY` profile with arguments in CLI.
+- Using `FACTORY` profile with arguments in CLI.
 
     ```bash
     cat <your_file> | hojichar -p example_profile.py --args arg1 arg2
