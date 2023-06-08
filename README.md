@@ -245,11 +245,9 @@ It might be helpful to add examples demonstrating the use of `Compose
 
 ## For Developers
 
-**Local Installation with Poetry**
+### Installing from the Source Directory
 
-Requirements: `python >= 3.8, poetry >= 1.2`
-
-To install the package, run the following commands:
+To install the package, execute the following commands:
 
 ```
 git clone https://github.com/HojiChar/HojiChar.git
@@ -257,30 +255,84 @@ cd HojiChar
 poetry install
 ```
 
-For installing development-related packages, you can run:
+To install packages related to development, use:
 
 ```
-poetry install --extras "dev lint test"
+poetry install --extras "dev lint test doc"
 ```
 
 ### Testing
 
-You can run the tests with:
+Some filters incorporate doctests. You can run these tests with the command:
 
 ```
 pytest --doctest-modules .
 ```
 
-This will execute both mypy and pytest tests.
+This command should be executed from the root of the project.
 
-Linting can be done using:
+### Code style
+
+- HojiChar requires type hints for all code. Type checking is performed in continuous integration (CI) in addition to the pytest tests.
+- HojiChar code is subject to inspection by the Flake8 Linter and is formatted using Black and isort. For configuration details, please refer to `pyproject.toml`. You can perform linting and formatting from the root of the project using the following commands:
+
+Linting
 
 ```
 poetry run task lint
 ```
 
-And for formatting:
+Formtatting
 
 ```
 poetry run task format
+```
+
+### Building the Documentation
+
+We use Pdoc for building the documentation. You can build the documentation using the following command:
+
+```
+pdoc -o docs hojichar
+```
+
+Run this command from the project root.
+
+In practice, the process of building the documentation is automated by CI. When a Pull Request is merged into the main branch, the documentation is built in the `docs/` directory of the `docs` branch. This directory is then deployed to the official documentation site by GitHub Pages.
+
+### Creating a Source Tarball
+
+To create a source tarball, for instance, for packaging or distribution, run the following command:
+
+```
+poetry build
+```
+
+The tarball will be created in the dist directory. This command will compile the source code, and the resulting tarball can be installed with no additional dependencies other than the Python standard library.
+
+### Creating a Release and Uploading it to PyPI
+
+This command is primarily used by the project manager to create a release and upload it to PyPI.
+
+Versions uploaded to PyPI are identified by git tags. The `__version__` variable in `__init__.py` or the `version` entry in `pyproject.toml` are ignored. The `poetry-dynamic-versioning` Poetry plugin is used to implement this process.
+
+To add the plugin, use:
+
+```
+poetry self add "poetry-dynamic-versioning[plugin]"
+```
+
+The steps to push to PyPI are as follows, although in actuality, the process is automated by CI when a GitHub release is created from the tag.
+
+```
+git checkout v0.1.2
+poetry config pypi-token.pypi <API TOKEN>
+poetry build 
+poetry publish
+```
+
+The actual task for the manager is to apply the appropriate tag to the commit to be released and to create the release from GitHub:
+
+```
+git tag -a v0.1.2 -m "Version 0.1.2"
 ```
