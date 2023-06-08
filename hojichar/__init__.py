@@ -11,6 +11,7 @@ __version__ = "0.0.0"  # Replaced by poetry-dynamic-versioning when deploying
 __all__ = [
     "core",
     "filters",
+    "utils",
     "Compose",
     "Filter",
     "TokenFilter",
