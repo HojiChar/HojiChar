@@ -4,6 +4,8 @@ import pathlib
 import re
 import time
 import unicodedata
+from os import PathLike
+from typing import Any, Optional, Union
 
 import hojichar
 from hojichar.core.filter_interface import Filter
@@ -28,7 +30,7 @@ class ExampleHojiChar(Filter):
 class ExampleDiscardDocumentContainKeyword(Filter):
     """特定のキーワードを持つドキュメントを破棄するようなフィルタの実装例です."""
 
-    def __init__(self, keyword: str, *args, **kwargs):
+    def __init__(self, keyword: str, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.keyword = keyword
 
@@ -45,7 +47,7 @@ class ExampleDiscardDocumentContainKeyword(Filter):
 class Identity(Filter):
     """何も変化を加えないフィルタです. テスト・デバッグに用いられます."""
 
-    def apply(self, document):
+    def apply(self, document: Document) -> Document:
         return document
 
 
@@ -55,7 +57,7 @@ class DiscardAll(Filter):
     テスト・デバッグに用いられます.
     """
 
-    def apply(self, document):
+    def apply(self, document: Document) -> Document:
         document.is_rejected = True
         return document
 
@@ -70,7 +72,7 @@ class ApplyDiscard(Filter):
     したデバッグ時などに利用されます.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
     def apply(self, document: Document) -> Document:
@@ -89,11 +91,11 @@ class Sleep(Filter):
     デバッグ用のフィルタです. 指定秒スリープします.
     """
 
-    def __init__(self, time: float = 1.0, *args, **kwargs) -> None:
+    def __init__(self, time: float = 1.0, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.time = time
 
-    def apply(self, document):
+    def apply(self, document: Document) -> Document:
         """
         >>> Sleep(0.1)('hello')  # After 0.1 seconds,
         'hello'
@@ -107,7 +109,7 @@ class DocumentNormalizer(Filter):
     Unicode の正規化をします.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
     def apply(self, document: Document) -> Document:
@@ -125,7 +127,7 @@ class JSONLoader(Filter):
     したドキュメントは破棄されます.
     """
 
-    def __init__(self, key="text", ignore=False, *args, **kwargs):
+    def __init__(self, key: str = "text", ignore: bool = False, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.key = key
         self.ignore = ignore
@@ -183,7 +185,13 @@ class DocumentLengthFilter(Filter):
     デフォルトでは 200字 以上 50000字以内のテキストが受理されます.
     """
 
-    def __init__(self, min_doc_len=None, max_doc_len=None, *args, **kwargs):
+    def __init__(
+        self,
+        min_doc_len: Optional[int] = None,
+        max_doc_len: Optional[int] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.min_doc_len = min_doc_len
@@ -215,7 +223,13 @@ class NgWordsFilterJa(Filter):
     デフォルト値は `False` です.
     """
 
-    def __init__(self, dict_path, ignore_confused=False, *args, **kwargs):
+    def __init__(
+        self,
+        dict_path: Union[str, PathLike],
+        ignore_confused: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -252,7 +266,7 @@ class NgWordsFilterEn(Filter):
     ファイルは単語が改行で羅列されたテキストファイルです.
     """
 
-    def __init__(self, dict_path, *args, **kwargs):
+    def __init__(self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -276,7 +290,12 @@ class DiscardAdultContentJa(NgWordsFilterJa):
     デフォルトの`dict_path` は /hojichar/dict/adult_keywords_ja.txt です.
     """
 
-    def __init__(self, dict_path=BASE_PATH / "dict/adult_keywords_ja.txt", *args, **kwargs):
+    def __init__(
+        self,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/adult_keywords_ja.txt",
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(dict_path, *args, **kwargs)
 
     def apply(self, doc: Document) -> Document:
@@ -303,7 +322,12 @@ class DiscardAdultContentEn(NgWordsFilterEn):
     デフォルトの`dict_path` は /hojichar/dict/adult_keywords_en.txt です.
     """
 
-    def __init__(self, dict_path=BASE_PATH / "dict/adult_keywords_en.txt", *args, **kwargs):
+    def __init__(
+        self,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/adult_keywords_en.txt",
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(dict_path, *args, **kwargs)
 
     def apply(self, doc: Document) -> Document:
@@ -327,9 +351,9 @@ class DiscardDiscriminationContentJa(NgWordsFilterJa):
 
     def __init__(
         self,
-        dict_path=BASE_PATH / "dict/discrimination_keywords_ja.txt",
-        *args,
-        **kwargs,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/discrimination_keywords_ja.txt",
+        *args: Any,
+        **kwargs: Any,
     ):
         super().__init__(dict_path, *args, **kwargs)
 
@@ -353,7 +377,12 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
     デフォルトの`dict_path` は /hojichar/dict/violence_keywords_ja.txt です.
     """
 
-    def __init__(self, dict_path=BASE_PATH / "dict/violence_keywords_ja.txt", *args, **kwargs):
+    def __init__(
+        self,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/violence_keywords_ja.txt",
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(dict_path, *args, **kwargs)
 
     def apply(self, doc: Document) -> Document:
@@ -376,7 +405,7 @@ class DiscardBBSComments(Filter):
     https://regex101.com/r/ybQvL2/1
     """
 
-    def __init__(self, max_allowed_num=14, *args, **kwargs):
+    def __init__(self, max_allowed_num: int = 14, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.max_allowed_num = max_allowed_num
@@ -384,7 +413,7 @@ class DiscardBBSComments(Filter):
             r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"  # noqa
         )
 
-    def apply(self, doc):
+    def apply(self, doc: Document) -> Document:
         """
         >>> DiscardBBSComments().apply(Document("楽天市場 質問 投稿 コメント レビュー "*3)).is_rejected
         True
@@ -409,10 +438,10 @@ class DiscardAds(Filter):
 
     def __init__(
         self,
-        dict_path=BASE_PATH / "dict/advertisement_keywords_ja.txt",
-        max_allowed_num=14,
-        *args,
-        **kwargs,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
+        max_allowed_num: int = 14,
+        *args: Any,
+        **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
 
@@ -444,7 +473,7 @@ class AcceptJapanese(Filter):
         ひらがな・カタカナが存在すれば日本語と判定する.
     """
 
-    def __init__(self, lookup_size=50, *args, **kwargs) -> None:
+    def __init__(self, lookup_size: int = 50, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.lookup_size = 50
@@ -475,7 +504,7 @@ class DiscardRareKuten(Filter):
     このフィルタは, 文章中の句点の割合が少なすぎるドキュメントを破棄します.
     """
 
-    def __init__(self, max_average_sentence_length=100, *args, **kwargs) -> None:
+    def __init__(self, max_average_sentence_length: int = 100, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.max_average_sentence_length = max_average_sentence_length
@@ -507,9 +536,9 @@ class HeaderFooterTagsRemover(Filter):
 
     def __init__(
         self,
-        dict_path=BASE_PATH / "dict/header_footer_keywords_ja.txt",
-        *args,
-        **kwargs,
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/header_footer_keywords_ja.txt",
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
 
@@ -562,7 +591,7 @@ class MaskPersonalInformation(Filter):
     ドキュメントに含まれる電話番号・電子メールアドレスを一部マスキングします.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.phone_pat = re.compile(
