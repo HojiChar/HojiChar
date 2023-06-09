@@ -13,8 +13,8 @@ hojichar = "hojichar.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-numpy = "^1.23.4"
-mmh3 = "^4.0.0"
+numpy = ">=1.17.0"
+mmh3 = "^4.0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -29,10 +29,10 @@ optional = true
 black = "^22.3.0"
 flake8 = "^4.0.1"
 isort = "^5.10.1"
+mypy = "^1.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.1.2"
-mypy = ">=0.982"
 pytest-cov = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
