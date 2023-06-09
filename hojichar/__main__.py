@@ -4,6 +4,8 @@ import logging
 import os
 import signal
 import sys
+from types import FrameType
+from typing import Optional
 
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
@@ -18,7 +20,8 @@ def finalize() -> None:
     print(json.dumps(FILTER.statistics), file=sys.stderr, end="")
 
 
-def sigint_handler(signum, frame) -> None:
+# Typing of signal handler: https://github.com/python/typing/discussions/1042
+def sigint_handler(signum: int, frame: Optional[FrameType]) -> None:
     print(file=sys.stderr)
     finalize()
     sys.exit(0)
