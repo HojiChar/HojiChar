@@ -25,7 +25,7 @@ jobs:
         run: poetry install --with test
       - name: Test with pytest and doctest
         run: |
-          pytest --cov -v --doctest-modules .
+          poetry run pytest --cov -v --doctest-modules .
       - name: Upload coverge reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v3
 
@@ -47,9 +47,9 @@ jobs:
         run: poetry install --with lint
       - name: Check black and isort
         run: |
-          black --check --diff .
-          isort --check-only --diff .
+          poetry run black --check --diff .
+          poetry run isort --check-only --diff .
       - name: Check Flake8
-        run: flake8 --show-source --statistics .
+        run: poetry run flake8 --show-source --statistics .
       - name: Mypy type checking
-        run: mypy --explicit-package-bases hojichar
+        run: poetry run mypy --explicit-package-bases hojichar
