@@ -3,7 +3,7 @@ name: CI wowkflow
 on: [push, pull_request]
 
 jobs:
-  CI:
+  pytest:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -14,27 +14,42 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pipx install poetry
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: "poetry"
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-          poetry config virtualenvs.create false
-          poetry install --with lint,test
-      - name: Lint and format check
-        run: |
-          black --check --diff .
-          flake8 --show-source .
-          isort --check-only --diff .
-        continue-on-error: true
+        run: poetry install --with test
       - name: Test with pytest and doctest
         run: |
           pytest --cov -v --doctest-modules .
-      - name: Type checking via mypy
-        run: |
-          mypy --explicit-package-bases hojichar
       - name: Upload coverge reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v3
+
+  lint_type_check:
+    runs-on: ubuntu-latest
+    env:
+      python-version: "3.10"
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ python-version }}
+          cache: "poetry"
+      - name: Install dependencies
+        run: poetry install --with lint
+      - name: Check black and isort
+        run: |
+          black --check --diff .
+          isort --check-only --diff .
+      - name: Check Flake8
+        run: flake8 --show-source --statistics .
+      - name: Mypy type checking
+        run: mypy --explicit-package-bases hojichar
