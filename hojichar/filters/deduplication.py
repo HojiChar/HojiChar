@@ -2,7 +2,8 @@
 文書の(近似)重複処理のためのモジュール.
 """
 import copy
-from typing import Callable, List
+from os import PathLike
+from typing import Any, Callable, List, Union
 
 import mmh3
 
@@ -21,12 +22,12 @@ class GenerateDedupLSH(Filter):
 
     def __init__(
         self,
-        n_minhash=200,
-        n_gram=5,
-        n_buckets=20,
-        bucket_size=10,
-        *args,
-        **kwargs,
+        n_minhash: int = 200,
+        n_gram: int = 5,
+        n_buckets: int = 20,
+        bucket_size: int = 10,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         assert n_minhash == n_buckets * bucket_size
@@ -203,11 +204,11 @@ class LSHDeduplicator(Filter):
 
     def __init__(
         self,
-        online_dedup=True,
-        blacklist_path="",
-        store_blacklist=False,
-        *args,
-        **kwargs,
+        online_dedup: bool = True,
+        blacklist_path: Union[str, PathLike] = "",
+        store_blacklist: bool = False,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.online_dedup = online_dedup
