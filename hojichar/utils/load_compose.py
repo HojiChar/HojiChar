@@ -70,7 +70,7 @@ def load_factory_from_file(
     sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FACTORY"):
-        factory = getattr(module, "FACTORY")
+        factory: Callable[[Optional[Any]], hojichar.Compose] = getattr(module, "FACTORY")
         return factory
     else:
         raise NotImplementedError("FACTORY is not defined in the profile")

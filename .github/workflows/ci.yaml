@@ -32,7 +32,9 @@ jobs:
         continue-on-error: true
       - name: Test with pytest and doctest
         run: |
-          pytest --cov --doctest-modules .
-          mypy .
+          pytest --cov -v --doctest-modules .
+      - name: Type checking via mypy
+        run: |
+          mypy --explicit-package-bases hojichar
       - name: Upload coverge reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v3

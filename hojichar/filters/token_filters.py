@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from hojichar.core.filter_interface import TokenFilter
 from hojichar.core.models import Token
@@ -23,7 +24,7 @@ class SEOTokenRemover(TokenFilter):
     the regex pattern is too complex.
     """
 
-    def __init__(self, min_average_seo_char_length=5, *args, **kwargs):
+    def __init__(self, min_average_seo_char_length: int = 5, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.token_split_pat = re.compile(r"\ |-|・|,")
         self.min_average_seo_char_length = min_average_seo_char_length
@@ -42,8 +43,7 @@ class SEOTokenRemover(TokenFilter):
             return token
 
         replace_patterns = self.replace_pat.search(token.text)
-        try:
+        if replace_patterns is not None:
             token.text = token.text.replace(replace_patterns.group(0), "", 1)
-        except Exception:
-            pass
+
         return token

@@ -1,8 +1,8 @@
-from typing import List
+from typing import List, Optional
 
 
 class Token:
-    def __init__(self, text: str, is_rejected=False) -> None:
+    def __init__(self, text: str, is_rejected: bool = False) -> None:
         self.text = text
         self.__original = text
         self.is_rejected = is_rejected
@@ -13,7 +13,9 @@ class Token:
 
 
 class Document:
-    def __init__(self, text: str, is_rejected=False, tokens=None) -> None:
+    def __init__(
+        self, text: str, is_rejected: bool = False, tokens: Optional[List[Token]] = None
+    ) -> None:
         self.text = text
         self.__original = text
         self.is_rejected = is_rejected

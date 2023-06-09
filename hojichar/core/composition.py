@@ -2,7 +2,7 @@ import json
 import logging
 import numbers
 import pprint
-from typing import List, Union
+from typing import Any, List, Optional, Union
 
 import numpy as np
 
@@ -16,9 +16,9 @@ class Compose(Filter):
         self,
         filters: List[Union[Filter, TokenFilter]],
         ignore_filtered: bool = True,
-        random_state: Union[None, int, np.random.Generator] = None,
-        *args,
-        **kwargs,
+        random_state: Optional[Union[int, np.random.Generator]] = None,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
         Compose a filter from pre-defined filter-objects.
@@ -60,7 +60,7 @@ class Compose(Filter):
         # Turn random_state into a `np.random.Generator` instance.
         if random_state is None:
             self.rng = np.random.default_rng()
-        elif isinstance(random_state, numbers.Integral):
+        elif isinstance(random_state, int):
             self.rng = np.random.default_rng(random_state)
         elif isinstance(random_state, np.random.Generator):
             self.rng = random_state
@@ -97,7 +97,7 @@ class Compose(Filter):
     def statistics(self) -> dict:
         return self._statistics.get_statistics()
 
-    def summary(self, format="print"):
+    def summary(self, format: str = "print") -> None:
         info = [
             {
                 "layer": i,
