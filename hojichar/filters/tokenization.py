@@ -15,7 +15,7 @@ class BlankCharTokenizer(Filter):
         document.set_tokens(tokens)
         return document
 
-    def tokenize(self, text) -> List[str]:
+    def tokenize(self, text: str) -> List[str]:
         """
         >>> BlankCharTokenizer().tokenize("hello world")
         ['hello', 'world']
@@ -55,7 +55,7 @@ class SentenceTokenizer(Filter):
         document.set_tokens(tokens)
         return document
 
-    def tokenize(self, text) -> List[str]:
+    def tokenize(self, text: str) -> List[str]:
         """
         >>> SentenceTokenizer().tokenize("おはよう。おやすみ。ありがとう。さよなら。")
         ['おはよう。', 'おやすみ。', 'ありがとう。', 'さよなら。']
