@@ -53,7 +53,7 @@ line-length = 99
 profile = "black"
 line_length = 99
 
-[tool.mypy]
+[tool.mypy.hojihcar]
 disallow_untyped_defs = true
 disallow_any_unimported = true
 no_implicit_optional = true
