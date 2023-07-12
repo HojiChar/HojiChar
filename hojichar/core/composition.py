@@ -10,32 +10,28 @@ from hojichar.core.inspection import Inspector, StatisticsCounter
 from hojichar.core.models import Document
 
 
+class BeforeProcessFilter(Filter):
+    def apply(self, doc: Document) -> Document:
+        return doc
+
+
 class Compose(Filter):
     def __init__(
         self,
         filters: List[Union[Filter, TokenFilter]],
-        ignore_filtered: bool = True,
         random_state: Optional[Union[int, np.random.Generator]] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
         """
         Compose a filter from pre-defined filter-objects.
+        Filter which has `skip_rejected` flag ignores a document which has `is_rejected` flag.
+        By doing so, Compose avoid applying filters that do not affect the output.
 
         Parameters
         ----------
         filters : List[Union[Filter, TokenFilter]]
             Filter instances which apply to the corpus.
-
-        ignore_filtered : bool, optional
-            Default = True
-            If True, filters ignore a document which has `is_rejected` flag.
-            By doing so, we avoid applying filters that do not affect the output.
-
-            However, for the purpose of corpus survay, e.g., to determine how many documents
-            in the corpus are removed by a certain filter, it is preferable not to be
-            affected by the upstream filter. In such a case, you should
-            set `ignore_filter` to False.
 
         random_state : Union[None, int, np.random.Generator], optional
             Default = None
@@ -44,17 +40,15 @@ class Compose(Filter):
         """
         super().__init__(*args, **kwargs)
         self.filters = filters
-        self.filter_name_list = [f"{i}-{filt.name}" for i, filt in enumerate(self.filters)]
         self.logger = logging.getLogger("hojichar.Compose")
-        self.ignore_filtered = ignore_filtered
         self.before_process_inspector = Inspector(
-            target="before_process", ignore_filtered=ignore_filtered
+            target_filter=BeforeProcessFilter(), filter_idx=-1
         )
         self.inspectors = [
-            Inspector(target=name, ignore_filtered=ignore_filtered)
-            for name in self.filter_name_list
+            Inspector(target_filter=filter, filter_idx=idx)
+            for idx, filter in enumerate(self.filters)
         ]
-        self._statistics = StatisticsCounter(self.inspectors, ignore_filtered=self.ignore_filtered)
+        self._statistics = StatisticsCounter(self.inspectors)
 
         # Turn random_state into a `np.random.Generator` instance.
         if random_state is None:
@@ -69,25 +63,32 @@ class Compose(Filter):
     def __call__(self, text: str) -> str:
         document = Document(text)
         document = self.apply(document)
-        return document.text
+        if document.is_rejected:
+            return ""
+        else:
+            return document.text
+
+    def _apply_filter(self, filt: Union[Filter, TokenFilter], document: Document) -> Document:
+        if document.is_rejected and filt.skip_rejected:
+            pass
+        else:
+            if filt.p == 1:
+                document = filt.apply_filter(document)
+            else:
+                if self.rng.random() < filt.p:
+                    document = filt.apply_filter(document)
+        return document
 
     def apply(self, document: Document) -> Document:
         document = self.before_process_inspector.apply(document)
+        previous_inspector = self.before_process_inspector
         for i, filt in enumerate(self.filters):
-            if (filt.p == 1) or (filt.p is None):
-                document = filt.filter_apply(document)
-            else:
-                if self.rng.random() < filt.p:
-                    document = filt.filter_apply(document)
-
-            # If `ignore_filtered==False`, filters process a doc which is rejected
-            # Under the setting, each inspector always re-set `doc.is_rejected` to `False`.
-            document = self.inspectors[i].apply(document)
-
-        document.processed_text = document.text
-        if sum([inspector.is_rejected for inspector in self.inspectors]):
-            document.is_rejected = True
-            document.text = ""
+            inspector = self.inspectors[i]
+            document = self._apply_filter(filt=filt, document=document)
+            document = inspector.apply(document)
+            if (not previous_inspector.is_rejected) and inspector.is_rejected:
+                document.reject_reason = filt.get_jsonalbe_vars()
+            previous_inspector = inspector
 
         self._statistics.update_changes(document, self.before_process_inspector, self.inspectors)
         return document

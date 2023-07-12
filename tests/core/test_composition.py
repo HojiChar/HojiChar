@@ -12,40 +12,21 @@ class TestCompose:
         assert cleaner("") == "<hojichar><hojichar>"
 
     def test_discard_num_ignore_filtered_option_positive_case(self):
-        cleaner = Compose([DiscardAll(), DiscardAll()], ignore_filtered=True)
+        cleaner = Compose([DiscardAll(), DiscardAll()])
         cleaner("hoge")
         counts = cleaner._statistics.counts
         assert counts["0-DiscardAll"].discard_num == 1
         assert counts["1-DiscardAll"].discard_num == 0
 
-    def test_discard_num_ignore_filtered_option_negative_case(self):
-        cleaner = Compose([DiscardAll(), DiscardAll()], ignore_filtered=False)
-        cleaner("hoge")
-        counts = cleaner._statistics.counts
-        assert counts["0-DiscardAll"].discard_num == 1
-        assert counts["1-DiscardAll"].discard_num == 1
-
     def test_diff_bytes_ingore_filtered_option_positive_case(self):
         cleaner = Compose(
             [Identity(), DiscardAll(), ExampleHojiChar()],
-            ignore_filtered=True,
         )
         cleaner("a")
         counts = cleaner._statistics.counts
         assert counts["0-Identity"].diff_bytes == 0
         assert counts["1-DiscardAll"].diff_bytes == -1
         assert counts["2-ExampleHojiChar"].diff_bytes == 0
-
-    def test_diff_bytes_ingore_filtered_option_negative_case(self):
-        cleaner = Compose(
-            [Identity(), DiscardAll(), ExampleHojiChar()],
-            ignore_filtered=False,
-        )
-        cleaner("a")
-        counts = cleaner._statistics.counts
-        assert counts["0-Identity"].diff_bytes == 0
-        assert counts["1-DiscardAll"].diff_bytes == -1
-        assert counts["2-ExampleHojiChar"].diff_bytes == 10
 
     def test_random_apply1(self):
         cleaner = Compose([DiscardAll(p=0.1)], random_state=42)

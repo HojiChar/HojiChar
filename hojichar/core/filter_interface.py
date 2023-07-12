@@ -4,6 +4,20 @@ from typing import Any
 from hojichar.core.models import Document, Token
 
 
+def _is_jsonable(data: Any) -> bool:
+    if data is None:
+        return True
+    elif isinstance(data, (bool, int, float, str)):
+        return True
+    """
+    elif isinstance(data, (tuple, list)):
+        return all(Filter._is_jsonable(x) for x in data)
+    elif isinstance(data, dict):
+        return all(isinstance(k, str) and Filter._is_jsonable(v) for k, v in data.items())
+    """
+    return False
+
+
 class Filter:
     """
     Base class for all filters.
@@ -21,19 +35,30 @@ class Filter:
     to prevent unexpected behavior.
 
     If you apply the filter to tokens, you can use `TokenFilter` class.
+
+    Parameters
+    ----------
+    p: float
+        The probability apply the filter organized by hojichar.Compose
+    skip_reject: bool
+        If set True, hojichar.Compose make this filter ignore the document
+        which has `is_rejected` flag. By default, set True.
     """
 
-    def __init__(self, p: float = 1, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, p: float = 1, skip_rejected: bool = True, *args: Any, **kwargs: Any
+    ) -> None:
         """
         Parameters
         ----------
-        p : float, optional
+        p : float, opt∏ional
             Probability that this filter will be applied. Default=1
         """
         self.name = self.__class__.__name__
         self.logger = logging.getLogger("hojichar.document_filters." + self.name)
         assert 0 <= p <= 1
         self.p = p
+        self.skip_rejected = skip_rejected
 
     def apply(self, document: Document) -> Document:
         """Definition of filter behavior.
@@ -56,16 +81,27 @@ class Filter:
         raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
         return document
 
-    def filter_apply(self, document: Document) -> Document:
-        if document.is_rejected:
-            return document
-        else:
-            return self.apply(document)
+    def apply_filter(self, document: Document) -> Document:
+        document = self.apply(document)
+        return document
 
     def __call__(self, text: str) -> str:
         document = Document(text)
-        document = self.filter_apply(document)
+        document = self.apply(document)
         return document.text
+
+    def get_jsonalbe_vars(self) -> dict:
+        """
+        Get the member variable of this filter.
+        Eligible variables are primitive types; [bool, int, float, str, None],
+        and the name of the variable not starts with the underscore; `_`.
+        """
+        exclude_keys = {"logger", "skip_rejected"}
+        return {
+            k: v
+            for k, v in vars(self).items()
+            if (_is_jsonable(v) and (k not in exclude_keys) and (not k.startswith("_")))
+        }
 
 
 class TokenFilter:
@@ -76,26 +112,42 @@ class TokenFilter:
     must inherit from this class.
     """
 
-    def __init__(self, p: float = 1, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, p: float = 1, skip_rejected: bool = True, *args: Any, **kwargs: Any
+    ) -> None:
         self.name = self.__class__.__name__
         self.logger = logging.getLogger("hojichar.token_filters." + self.name)
         assert 0 <= p <= 1
         self.p = p
+        self.skip_rejected = skip_rejected
 
     def apply(self, token: Token) -> Token:
         raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
         return token
 
-    def filter_apply(self, document: Document) -> Document:
-        if document.is_rejected:
-            return document
-        else:
-            document.tokens = [
-                self.apply(token) for token in document.tokens if not token.is_rejected
-            ]
-            return document
+    def apply_filter(self, document: Document) -> Document:
+        document.tokens = [self.apply(token) for token in document.tokens if not token.is_rejected]
+        return document
 
     def __call__(self, text: str) -> str:
         token = Token(text)
         token = self.apply(token)
         return token.text
+
+    def get_jsonable_vars(self) -> dict:
+        # Output key-values of member variables that can be obtained by var(self), except "logger".
+        exclude_keys = ["logger"]
+        return dict(filter(lambda item: item[0] not in exclude_keys, vars(self).items()))
+
+    def get_jsonalbe_vars(self) -> dict:
+        """
+        Get the member variable of this filter.
+        Eligible variables are primitive types; [bool, int, float, str, None],
+        and the name of the variable not starts with the underscore; `_`.
+        """
+        exclude_keys = {"logger", "skip_rejected"}
+        return {
+            k: v
+            for k, v in vars(self).items()
+            if (_is_jsonable(v) and (k not in exclude_keys) and (not k.startswith("_")))
+        }

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class Token:
@@ -11,6 +11,9 @@ class Token:
     def original(self) -> str:
         return self.__original
 
+    def __str__(self) -> str:
+        return self.text
+
 
 class Document:
     def __init__(
@@ -19,11 +22,11 @@ class Document:
         self.text = text
         self.__original = text
         self.is_rejected = is_rejected
-        self.processed_text = ""
         if tokens is None:
             self.tokens: List[Token] = []
 
         self.dedup_lsh: List[str] = []
+        self.reject_reason: Dict[str, Any] = {}
 
     @property
     def original(self) -> str:
@@ -34,3 +37,6 @@ class Document:
 
     def get_tokens(self) -> List[str]:
         return [token.text for token in self.tokens]
+
+    def __str__(self) -> str:
+        return self.text
