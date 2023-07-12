@@ -10,7 +10,7 @@ from typing import Optional
 import hojichar
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 from hojichar.utils.load_compose import load_compose
-from hojichar.utils.process import process_iter
+from hojichar.utils.process import process_iter, reject_iter
 
 FILTER: hojichar.Compose
 logger = logging.getLogger("hojichar.__main__")
@@ -67,6 +67,13 @@ def argparser() -> argparse.Namespace:
         help="This option is used to redirect standard output to a specified file during the \
         profile. By default, it redirects to /dev/null.",
     )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        default=False,
+        help="A flag that specifies whether to include discarded samples. \
+            This is useful when inspecting discarded samples.",
+    )
     args = parser.parse_args()
     return args
 
@@ -85,9 +92,10 @@ def main() -> None:
         *tuple(args.args),
     )
     input_iter = stdin_iter()
-    out_str_iter = process_iter(
+    out_doc_iter = process_iter(
         input_iter=input_iter, filter=FILTER, exit_on_error=args.exit_on_error, stdout_fp=stdout_fp
     )
+    out_str_iter = reject_iter(input_iter=out_doc_iter, discard_rejected=not args.all)
     if args.output:
         with open(args.output, "w") as fp:
             fileout_from_iter(out_str_iter, fp)
