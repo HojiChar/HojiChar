@@ -165,9 +165,26 @@ class JSONLoader(Filter):
 
 class JSONDumper(Filter):
     """
-    Doucment.text の値を, エントリ名が "text" という名前の Json に格納します.
-    出力が json lines 欲しいときに Compose の出力前に使用します.
+    Document.text の文字列を json に変換します.
+    必要に応じ Document のメタデータを付与します.
     """
+
+    def __init__(
+        self,
+        dump_reason: bool = False,
+        p: float = 1,
+        skip_rejected: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            dump_reason (bool, optional): `is_rejected`, `reason` エントリをダンプします. Defaults to False.
+            p (float, optional): Apply probability. Defaults to 1.
+            skip_rejected (bool, optional): 破棄済みサンプルを排除しません.
+        """
+        super().__init__(p, skip_rejected, *args, **kwargs)
+        self.dump_reason = dump_reason
 
     def apply(self, document: Document) -> Document:
         """
@@ -175,7 +192,17 @@ class JSONDumper(Filter):
         '{"text": "hojichar"}'
         """
         text = document.text
-        document.text = json.dumps({"text": text}, ensure_ascii=False)
+        if self.dump_reason:
+            document.text = json.dumps(
+                {
+                    "text": text,
+                    "is_rejected": document.is_rejected,
+                    "reason": document.reject_reason,
+                },
+                ensure_ascii=False,
+            )
+        else:
+            document.text = json.dumps({"text": text}, ensure_ascii=False)
         return document
 
 

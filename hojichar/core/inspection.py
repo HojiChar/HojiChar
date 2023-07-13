@@ -1,20 +1,23 @@
 import dataclasses
 import logging
 import time
-from typing import Any, List
+from typing import Any, Dict, List, Union
 
-from hojichar.core.filter_interface import Filter
+from hojichar.core.filter_interface import Filter, TokenFilter
 from hojichar.core.models import Document
 
 logger = logging.getLogger(__name__)
 
 
 class Inspector(Filter):
-    def __init__(self, target: str, ignore_filtered: bool, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, target_filter: Union[Filter, TokenFilter], filter_idx: int, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("hojichar.Inspector")
-        self.target = target
-        self.ignore_filtered = ignore_filtered
+        self.target_filter = target_filter
+        self.filter_idx = filter_idx
+        self.target = f"{filter_idx}-{target_filter.name}"
 
         self.is_rejected = False
         self.text_hash = 0
@@ -22,8 +25,6 @@ class Inspector(Filter):
 
     def apply(self, document: Document) -> Document:
         self.inspect(document)
-        if not self.ignore_filtered:
-            document.is_rejected = False
         return document
 
     def inspect(self, document: Document) -> None:
@@ -70,13 +71,13 @@ class DocStatistics:
 
 
 class StatisticsCounter:
-    def __init__(self, inspectors: List[Inspector], ignore_filtered: bool) -> None:
+    def __init__(self, inspectors: List[Inspector]) -> None:
         counts = dict()
+        self.inspectors = inspectors
         for inspector in inspectors:
             counts[inspector.target] = FilterStatistics()
         self.counts = counts
         self.doc_counts = DocStatistics()
-        self.ignore_filtered = ignore_filtered
 
     def update_changes(
         self,
@@ -85,29 +86,20 @@ class StatisticsCounter:
         inspectors: List[Inspector],
     ) -> None:
 
+        # Counting statistics for each filter
         previous_inspector = before_process_inspector
         for idx, inspector in enumerate(inspectors):
-            # logging how many docs are discarded in each filter.
-            if self.ignore_filtered:
-                if (not previous_inspector.is_rejected) and inspector.is_rejected:
-                    self.counts[inspector.target].discard_num += 1
-            else:
-                if inspector.is_rejected:
-                    self.counts[inspector.target].discard_num += 1
+            # Logging how many docs are discarded in each filter
+            if (not previous_inspector.is_rejected) and inspector.is_rejected:
+                self.counts[inspector.target].discard_num += 1
 
             # logging how much volume of docs are changed in each filter.
-            if self.ignore_filtered:
-                if (not previous_inspector.is_rejected) and inspector.is_rejected:
-                    diff_bytes = -inspector.bytes
-                elif previous_inspector.is_rejected and inspector.is_rejected:
-                    diff_bytes = 0
-                else:
-                    diff_bytes = inspector.bytes - previous_inspector.bytes
+            if (not previous_inspector.is_rejected) and inspector.is_rejected:
+                diff_bytes = -inspector.bytes
+            elif previous_inspector.is_rejected and inspector.is_rejected:
+                diff_bytes = 0
             else:
-                if inspector.is_rejected:
-                    diff_bytes = -inspector.bytes
-                else:
-                    diff_bytes = inspector.bytes - previous_inspector.bytes
+                diff_bytes = inspector.bytes - previous_inspector.bytes
 
             self.counts[inspector.target].diff_bytes += diff_bytes
 
@@ -116,25 +108,29 @@ class StatisticsCounter:
 
             previous_inspector = inspector
 
+        # Counting total statistics
         self.doc_counts.processed_num += 1
         self.doc_counts.discard_num += (
             1 if sum([inspector.is_rejected for inspector in inspectors]) > 0 else 0
         )
         self.doc_counts.input_bytes += len(document.original.encode("utf-8"))
-        self.doc_counts.output_bytes += len(document.text.encode("utf-8"))
+        self.doc_counts.output_bytes += (
+            0 if document.is_rejected else len(document.text.encode("utf-8"))
+        )
         self.doc_counts.cumulative_time_ns += inspectors[-1].time_ns - inspectors[0].time_ns
         self.doc_counts.total_token_num += len(document.tokens)
 
     def get_statistics(self) -> dict:
         # about_layers = dict()
         about_layers = []
-        for filter_name, stats in self.counts.items():
+        for idx, (filter_name, stats) in enumerate(self.counts.items()):
             # about_layers[key] = self.counts[key].get_human_readable_values()
-            item = dict()
+            item: Dict[str, Any] = dict()
             item["name"] = filter_name
             stats = self.counts[filter_name]
             for key, stat in stats.get_human_readable_values().items():
                 item[key] = stat
+            item["params"] = self.inspectors[idx].target_filter.get_jsonalbe_vars()
             about_layers.append(item)
 
         return {

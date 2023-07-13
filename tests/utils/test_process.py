@@ -1,7 +1,7 @@
 import pytest
 
 import hojichar
-from hojichar.utils.process import process_iter
+from hojichar.utils.process import process_iter, reject_iter
 
 
 class MockExcetion(Exception):
@@ -31,8 +31,9 @@ class MockFilter(hojichar.Filter):
     ],
 )
 def test_process_iter(test_data, expected_output):
-    out_iter = process_iter(test_data, MockFilter(), exit_on_error=False)
-    assert list(out_iter), expected_output
+    doc_iter = process_iter(test_data, MockFilter(), exit_on_error=False)
+    out_iter = reject_iter(doc_iter, discard_rejected=True)
+    assert list(map(str, out_iter)), expected_output
 
 
 @pytest.mark.parametrize(
@@ -43,7 +44,8 @@ def test_process_iter(test_data, expected_output):
     ],
 )
 def test_process_iter_raise(test_data, error):
-    out_iter = process_iter(test_data, MockFilter(), exit_on_error=True)
+    doc_iter = process_iter(test_data, MockFilter(), exit_on_error=True)
+    out_iter = reject_iter(doc_iter, discard_rejected=True)
     assert "Line1" == next(out_iter)
     with pytest.raises(error):
         next(out_iter)
