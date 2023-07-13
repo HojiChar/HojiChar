@@ -429,7 +429,7 @@ class DiscardBBSComments(Filter):
 
 class DiscardAds(Filter):
     """
-    主に広告キーワーを`max_allow_num`より多く含む文書を破棄します.
+    主に広告キーワードを`max_allow_num`より多く含む文書を破棄します.
     デフォルトで`max_allow_num` は14です.
     `dict_path` で指定したファイルから, 広告キーワードのリストを得ます.
     ファイルは単語が改行で羅列されたテキストファイルです.
