@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import time
-from typing import Any, List, Union
+from typing import Any, Dict, List, Union
 
 from hojichar.core.filter_interface import Filter, TokenFilter
 from hojichar.core.models import Document
@@ -125,7 +125,7 @@ class StatisticsCounter:
         about_layers = []
         for idx, (filter_name, stats) in enumerate(self.counts.items()):
             # about_layers[key] = self.counts[key].get_human_readable_values()
-            item = dict()
+            item: Dict[str, Any] = dict()
             item["name"] = filter_name
             stats = self.counts[filter_name]
             for key, stat in stats.get_human_readable_values().items():
