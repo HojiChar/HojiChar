@@ -281,8 +281,14 @@ class NgWordsFilterJa(Filter):
             self.keyword_pat = re.compile(pat)
 
     def apply(self, doc: Document) -> Document:
-        if self.keyword_pat.search(doc.text):
+        regex_match = self.keyword_pat.search(doc.text)
+        if regex_match:
             doc.is_rejected = True
+            self.matched_text = regex_match.group()
+            self.matched_text_neighbor = doc.text[
+                regex_match.start() - 20 : regex_match.end() + 20
+            ]
+
         return doc
 
 
