@@ -43,7 +43,7 @@ class FilterStatistics:
         ret = {
             "discard_num": self.discard_num,
             "diff_MB": (self.diff_bytes / 1048576),
-            "cumlative_time": (self.cumulative_time_ns / 10**9),
+            "cumulative_time": (self.cumulative_time_ns / 10**9),
         }
         return ret
 
