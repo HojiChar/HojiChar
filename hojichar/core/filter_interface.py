@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Optional, Set
 
 from hojichar.core.models import Document, Token
 
@@ -90,13 +90,14 @@ class Filter:
         document = self.apply(document)
         return document.text
 
-    def get_jsonalbe_vars(self) -> dict:
+    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
         and the name of the variable not starts with the underscore; `_`.
         """
-        exclude_keys = {"logger", "skip_rejected"}
+        if exclude_keys is None:
+            exclude_keys = set()
         return {
             k: v
             for k, v in vars(self).items()
@@ -139,13 +140,14 @@ class TokenFilter:
         exclude_keys = ["logger"]
         return dict(filter(lambda item: item[0] not in exclude_keys, vars(self).items()))
 
-    def get_jsonalbe_vars(self) -> dict:
+    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
         and the name of the variable not starts with the underscore; `_`.
         """
-        exclude_keys = {"logger", "skip_rejected"}
+        if exclude_keys is None:
+            exclude_keys = set()
         return {
             k: v
             for k, v in vars(self).items()

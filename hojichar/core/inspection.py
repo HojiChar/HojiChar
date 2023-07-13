@@ -73,6 +73,7 @@ class DocStatistics:
 class StatisticsCounter:
     def __init__(self, inspectors: List[Inspector]) -> None:
         counts = dict()
+        self.inspectors = inspectors
         for inspector in inspectors:
             counts[inspector.target] = FilterStatistics()
         self.counts = counts
@@ -122,13 +123,14 @@ class StatisticsCounter:
     def get_statistics(self) -> dict:
         # about_layers = dict()
         about_layers = []
-        for filter_name, stats in self.counts.items():
+        for idx, (filter_name, stats) in enumerate(self.counts.items()):
             # about_layers[key] = self.counts[key].get_human_readable_values()
             item = dict()
             item["name"] = filter_name
             stats = self.counts[filter_name]
             for key, stat in stats.get_human_readable_values().items():
                 item[key] = stat
+            item["params"] = self.inspectors[idx].target_filter.get_jsonalbe_vars()
             about_layers.append(item)
 
         return {
