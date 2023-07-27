@@ -17,7 +17,7 @@ logger = logging.getLogger("hojichar.__main__")
 
 
 def finalize() -> None:
-    print(json.dumps(FILTER.statistics), file=sys.stderr, end="")
+    print(json.dumps(FILTER.statistics, ensure_ascii=False, indent=2), file=sys.stderr, end="")
 
 
 # Typing of signal handler: https://github.com/python/typing/discussions/1042
