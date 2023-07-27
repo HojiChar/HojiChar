@@ -41,8 +41,13 @@ class Filter:
     p: float
         The probability apply the filter organized by hojichar.Compose
     skip_reject: bool
-        If set True, hojichar.Compose make this filter ignore the document
-        which has `is_rejected` flag. By default, set True.
+        If set `True`, `hojichar.Compose` make this filter ignore the document
+        which has `is_rejected` flag.
+        This flag is `True` by default since processing discarded documents
+        in subsequent filters is meaningless. However, in some cases, docs that
+        have been rejected need another filter. For example, analyzing false-positive,
+        discarded docs must be passed to JSON Dump filters. In such case,
+        set the `skip_reject` flag as `False` and make it pass all docs.
     """
 
     def __init__(

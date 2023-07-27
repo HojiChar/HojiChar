@@ -166,7 +166,9 @@ class JSONLoader(Filter):
 class JSONDumper(Filter):
     """
     Document.text の文字列を json に変換します.
-    必要に応じ Document のメタデータを付与します.
+    必要に応じ Document のメタデータを付与します. これはドキュメントの破棄事由が含まれ、偽陽性の分析に有効です。
+    デフォルトで `skip_rejected` が `False` にセットされており、Document の破棄フラグにかかわらず
+    処理されます。
     """
 
     def __init__(
