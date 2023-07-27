@@ -1,14 +1,22 @@
 import argparse
+import dataclasses
+import functools
+import json
 import logging
 import multiprocessing
+import os
+import sys
+from typing import Dict, Iterator, Tuple
 
 import hojichar
+from hojichar.core.inspection import StatsContainer
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 from hojichar.utils.load_compose import load_compose
 from hojichar.utils.process import reject_iter
 
 MAIN_FILTER: hojichar.Compose
 CLI_ARGS: argparse.Namespace
+
 logger = logging.getLogger("hojichar.__main__")
 
 
@@ -70,16 +78,26 @@ def init_worker(filter: hojichar.Compose, args: argparse.Namespace) -> None:
     CLI_ARGS = args
 
 
-def worker(doc: hojichar.Document) -> hojichar.Document:
+def worker(doc: hojichar.Document) -> Tuple[hojichar.Document, int, StatsContainer]:
     global MAIN_FILTER, CLI_ARGS
     try:
-        return MAIN_FILTER.apply(doc)
+        return MAIN_FILTER.apply(doc), os.getpid(), MAIN_FILTER.statistics_obj
     except Exception as e:
         if CLI_ARGS.exit_on_error:
             raise e
         else:
             logger.error(f"Caught {type(e)}. Skip processing the line: {doc.text}")
-            return hojichar.Document("", is_rejected=True)
+            return hojichar.Document("", is_rejected=True), os.getpid(), MAIN_FILTER.statistics_obj
+
+
+def out_doc_generator(
+    worker_out_iter: Iterator[Tuple[hojichar.Document, int, StatsContainer]],
+    pid_stats: Dict[int, StatsContainer],
+) -> Iterator[hojichar.Document]:
+    for worker_out in worker_out_iter:
+        doc, pid, worker_stats = worker_out
+        pid_stats[pid] = worker_stats
+        yield doc
 
 
 def main() -> None:
@@ -90,20 +108,28 @@ def main() -> None:
         args.profile,
         *tuple(args.args),
     )
+
+    pid_stats: Dict[int, StatsContainer] = dict()
     with multiprocessing.Pool(
         processes=args.jobs, initializer=init_worker, initargs=(filter, args)
     ) as pool:
-        out_doc_iter = pool.imap_unordered(
+        worker_out_iter = pool.imap_unordered(
             worker,
             input_doc_iter,
         )
-
+        out_doc_iter = out_doc_generator(worker_out_iter, pid_stats)
         out_str_iter = reject_iter(input_iter=out_doc_iter, discard_rejected=not args.all)
         if args.output:
             with open(args.output, "w") as fp:
                 fileout_from_iter(out_str_iter, fp)
         else:
             stdout_from_iter(out_str_iter)
+
+    stats: StatsContainer = functools.reduce(lambda x, y: x + y, pid_stats.values())
+    print(
+        json.dumps(dataclasses.asdict(stats), ensure_ascii=False, indent=2),
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
