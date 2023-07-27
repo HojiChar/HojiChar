@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import logging
 import time
@@ -36,17 +38,31 @@ class Inspector(Filter):
 
 @dataclasses.dataclass
 class FilterStatistics:
+    name: str
     discard_num: int = 0
     diff_bytes: int = 0
     cumulative_time_ns: int = 0
+    params: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def get_human_readable_values(self) -> dict:
         ret = {
+            "name": self.name,
             "discard_num": self.discard_num,
-            "diff_MB": (self.diff_bytes / 1048576),
+            "diff_MB": (self.diff_bytes / 1048576),  # 1024**2
             "cumulative_time": (self.cumulative_time_ns / 10**9),
+            "params": self.params,
         }
         return ret
+
+    def __add__(self, other: FilterStatistics) -> FilterStatistics:
+        assert self.name == other.name, "Layer names must match"
+        return FilterStatistics(
+            self.name,
+            self.discard_num + other.discard_num,
+            self.diff_bytes + other.diff_bytes,
+            self.cumulative_time_ns + other.cumulative_time_ns,
+            self.params,
+        )
 
 
 @dataclasses.dataclass
@@ -69,15 +85,50 @@ class DocStatistics:
         }
         return ret
 
+    def __add__(self, other: DocStatistics) -> DocStatistics:
+        return DocStatistics(
+            self.processed_num + other.processed_num,
+            self.discard_num + other.discard_num,
+            self.input_bytes + other.input_bytes,
+            self.output_bytes + other.output_bytes,
+            self.cumulative_time_ns + other.cumulative_time_ns,
+            self.total_token_num + other.total_token_num,
+        )
+
+
+@dataclasses.dataclass
+class StatsContainer:
+    total_info: DocStatistics
+    layers_info: Dict[str, FilterStatistics]  # Key of the dict is filter name.
+
+    def __add__(self, other: StatsContainer) -> StatsContainer:
+        assert self.layers_info.keys() == other.layers_info.keys(), "Layer names must match"
+        return StatsContainer(
+            self.total_info + other.total_info,
+            {k: v + other.layers_info[k] for k, v in self.layers_info.items()},
+        )
+
+    def get_human_readable_values(self) -> dict:
+        return {
+            "total_info": self.total_info.get_human_readable_values(),
+            "layers_info": [
+                layer.get_human_readable_values() for layer in self.layers_info.values()
+            ],
+        }
+
 
 class StatisticsCounter:
     def __init__(self, inspectors: List[Inspector]) -> None:
         counts = dict()
-        self.inspectors = inspectors
         for inspector in inspectors:
-            counts[inspector.target] = FilterStatistics()
-        self.counts = counts
-        self.doc_counts = DocStatistics()
+            counts[inspector.target] = FilterStatistics(
+                name=inspector.target,
+                params=inspector.target_filter.get_jsonalbe_vars(),
+            )
+        self.stats = StatsContainer(
+            DocStatistics(),
+            counts,
+        )
 
     def update_changes(
         self,
@@ -91,7 +142,7 @@ class StatisticsCounter:
         for idx, inspector in enumerate(inspectors):
             # Logging how many docs are discarded in each filter
             if (not previous_inspector.is_rejected) and inspector.is_rejected:
-                self.counts[inspector.target].discard_num += 1
+                self.stats.layers_info[inspector.target].discard_num += 1
 
             # logging how much volume of docs are changed in each filter.
             if (not previous_inspector.is_rejected) and inspector.is_rejected:
@@ -101,39 +152,24 @@ class StatisticsCounter:
             else:
                 diff_bytes = inspector.bytes - previous_inspector.bytes
 
-            self.counts[inspector.target].diff_bytes += diff_bytes
+            self.stats.layers_info[inspector.target].diff_bytes += diff_bytes
 
             process_time_ns = inspector.time_ns - previous_inspector.time_ns
-            self.counts[inspector.target].cumulative_time_ns += process_time_ns
+            self.stats.layers_info[inspector.target].cumulative_time_ns += process_time_ns
 
             previous_inspector = inspector
 
         # Counting total statistics
-        self.doc_counts.processed_num += 1
-        self.doc_counts.discard_num += (
-            1 if sum([inspector.is_rejected for inspector in inspectors]) > 0 else 0
+        self.stats.total_info.processed_num += 1
+        self.stats.total_info.discard_num += (
+            1 if any([inspector.is_rejected for inspector in inspectors]) > 0 else 0
         )
-        self.doc_counts.input_bytes += len(document.original.encode("utf-8"))
-        self.doc_counts.output_bytes += (
+        self.stats.total_info.input_bytes += len(document.original.encode("utf-8"))
+        self.stats.total_info.output_bytes += (
             0 if document.is_rejected else len(document.text.encode("utf-8"))
         )
-        self.doc_counts.cumulative_time_ns += inspectors[-1].time_ns - inspectors[0].time_ns
-        self.doc_counts.total_token_num += len(document.tokens)
+        self.stats.total_info.cumulative_time_ns += inspectors[-1].time_ns - inspectors[0].time_ns
+        self.stats.total_info.total_token_num += len(document.tokens)
 
     def get_statistics(self) -> dict:
-        # about_layers = dict()
-        about_layers = []
-        for idx, (filter_name, stats) in enumerate(self.counts.items()):
-            # about_layers[key] = self.counts[key].get_human_readable_values()
-            item: Dict[str, Any] = dict()
-            item["name"] = filter_name
-            stats = self.counts[filter_name]
-            for key, stat in stats.get_human_readable_values().items():
-                item[key] = stat
-            item["params"] = self.inspectors[idx].target_filter.get_jsonalbe_vars()
-            about_layers.append(item)
-
-        return {
-            "total_info": self.doc_counts.get_human_readable_values(),
-            "layers_info": about_layers,
-        }
+        return self.stats.get_human_readable_values()
