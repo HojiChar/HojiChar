@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Union
 import numpy as np
 
 from hojichar.core.filter_interface import Filter, TokenFilter
-from hojichar.core.inspection import Inspector, StatisticsCounter
+from hojichar.core.inspection import Inspector, StatisticsCounter, StatsContainer
 from hojichar.core.models import Document
 
 
@@ -96,6 +96,10 @@ class Compose(Filter):
     @property
     def statistics(self) -> dict:
         return self._statistics.get_statistics()
+
+    @property
+    def statistics_obj(self) -> StatsContainer:
+        return self._statistics.stats
 
     def summary(self, format: str = "print") -> None:
         info = [
