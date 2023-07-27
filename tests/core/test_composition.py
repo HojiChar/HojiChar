@@ -14,7 +14,7 @@ class TestCompose:
     def test_discard_num_ignore_filtered_option_positive_case(self):
         cleaner = Compose([DiscardAll(), DiscardAll()])
         cleaner("hoge")
-        counts = cleaner._statistics.counts
+        counts = cleaner._statistics.stats.layers_info
         assert counts["0-DiscardAll"].discard_num == 1
         assert counts["1-DiscardAll"].discard_num == 0
 
@@ -23,7 +23,7 @@ class TestCompose:
             [Identity(), DiscardAll(), ExampleHojiChar()],
         )
         cleaner("a")
-        counts = cleaner._statistics.counts
+        counts = cleaner._statistics.stats.layers_info
         assert counts["0-Identity"].diff_bytes == 0
         assert counts["1-DiscardAll"].diff_bytes == -1
         assert counts["2-ExampleHojiChar"].diff_bytes == 0
