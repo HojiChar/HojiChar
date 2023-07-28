@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hojichar"
-version = "0.0.0" # Versioning by git tag dinamically with https://github.com/mtkennerly/poetry-dynamic-versioning
+version = "0.0.0"                                     # Versioning by git tag dinamically with https://github.com/mtkennerly/poetry-dynamic-versioning
 description = "Text preprocessing management system."
 license = "Apache-2.0"
 authors = ["kenta.shinzato <hoppiece@gmail.com>"]
@@ -9,7 +9,7 @@ homepage = "https://github.com/HojiChar/HojiChar"
 repository = "https://github.com/HojiChar/HojiChar"
 
 [tool.poetry.scripts]
-hojichar = "hojichar.__main__:main"
+hojichar = "hojichar.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
