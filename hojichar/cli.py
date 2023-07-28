@@ -15,7 +15,7 @@ from hojichar.utils.load_compose import load_compose
 MAIN_FILTER: hojichar.Compose
 CLI_ARGS: argparse.Namespace
 
-logger = logging.getLogger("hojichar.__main__")
+logger = logging.getLogger("hojichar.cli")
 
 
 def argparser() -> argparse.Namespace:
