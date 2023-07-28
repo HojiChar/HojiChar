@@ -66,6 +66,7 @@ def argparser() -> argparse.Namespace:
         type=int,
         help="The number ob parallel jobs. By default, the nuber of the CPU core.",
     )
+    parser.add_argument("--chunksize", default=1, type=int)
     args = parser.parse_args()
     return args
 
@@ -108,7 +109,7 @@ def main() -> None:
     with multiprocessing.Pool(
         processes=args.jobs, initializer=init_worker, initargs=(filter, args)
     ) as pool:
-        worker_out_iter = pool.imap_unordered(worker, input_doc_iter)
+        worker_out_iter = pool.imap_unordered(worker, input_doc_iter, chunksize=args.chunksize)
         out_doc_iter = out_doc_generator(worker_out_iter, pid_stats)
         out_str_iter = (
             (doc.text for doc in out_doc_iter)
