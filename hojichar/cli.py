@@ -101,24 +101,22 @@ def out_doc_generator(
 
 
 def main() -> None:
+    pid_stats: Dict[int, StatsContainer] = dict()
+
     args = argparser()
     input_iter = stdin_iter()
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
-    filter = load_compose(
-        args.profile,
-        *tuple(args.args),
-    )
-
-    pid_stats: Dict[int, StatsContainer] = dict()
+    filter = load_compose(args.profile, *tuple(args.args))
     with multiprocessing.Pool(
         processes=args.jobs, initializer=init_worker, initargs=(filter, args)
     ) as pool:
-        worker_out_iter = pool.imap_unordered(
-            worker,
-            input_doc_iter,
-        )
+        worker_out_iter = pool.imap_unordered(worker, input_doc_iter)
         out_doc_iter = out_doc_generator(worker_out_iter, pid_stats)
-        out_str_iter = reject_iter(input_iter=out_doc_iter, discard_rejected=not args.all)
+        out_str_iter = (
+            (doc.text for doc in out_doc_iter)
+            if args.all
+            else (doc.text for doc in out_doc_iter if not doc.is_rejected)
+        )
         if args.output:
             with open(args.output, "w") as fp:
                 fileout_from_iter(out_str_iter, fp)
@@ -127,9 +125,12 @@ def main() -> None:
 
     stats: StatsContainer = functools.reduce(lambda x, y: x + y, pid_stats.values())
     print(
-        json.dumps(dataclasses.asdict(stats), ensure_ascii=False, indent=2),
+        json.dumps(stats.get_human_readable_values(), ensure_ascii=False, indent=2),
         file=sys.stderr,
     )
+    if args.dump_stats:
+        with open(args.dump_stats, "a") as fp:
+            fp.write(json.dumps(stats.get_human_readable_values(), ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":
