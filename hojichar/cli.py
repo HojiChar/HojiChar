@@ -1,5 +1,4 @@
 import argparse
-import dataclasses
 import functools
 import json
 import logging
@@ -12,7 +11,6 @@ import hojichar
 from hojichar.core.inspection import StatsContainer
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 from hojichar.utils.load_compose import load_compose
-from hojichar.utils.process import reject_iter
 
 MAIN_FILTER: hojichar.Compose
 CLI_ARGS: argparse.Namespace
