@@ -132,21 +132,21 @@ It might be helpful to add examples demonstrating the use of `Compose
 - `hojichar --help`
 
   ```man
+    usage: hojichar [-h] --profile <profile.py> [--args ARGS [ARGS ...]] [--output OUTPUT] [--dump-stats <path to stats.json>] [--exit-on-error] [--all] [--jobs JOBS]
 
     options:
     -h, --help            show this help message and exit
     --profile <profile.py>, -p <profile.py>
                             Path to a Python file that implements your custom filter.
-    --args ARGS [ARGS ...]
+    --args ARGS [ARGS ...]E
                             Pass additional arguments to the profile. Use it like `--args arg1 arg2` etc. The arguments should be space-separated.
     --output OUTPUT, -o OUTPUT
                             Specifies the path for the output file. Defaults to standard output.
     --dump-stats <path to stats.json>
                             Dump statistics to file. If the file exists, it will be appended.
     --exit-on-error       Exit if an exception occurs during filtering. Useful for debugging custom filters.
-    --redirect-stdout REDIRECT_STDOUT
-                            This option is used to redirect standard output to a specified file during the profile. By default, it redirects to /dev/null.
-
+    --all                 A flag that specifies whether to include discarded samples. This is useful when inspecting discarded samples.
+    --jobs JOBS, -j JOBS  The number ob parallel jobs. By default, the nuber of the CPU core.
   ```
 
 ## Definition of Profile
