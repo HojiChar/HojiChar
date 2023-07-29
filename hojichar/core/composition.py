@@ -39,7 +39,7 @@ class Compose(Filter):
             `random_state` must be int or np.random.Generator instance.
         """
         super().__init__(*args, **kwargs)
-        self.filters = filters
+        self.set_filters(filters)
         self.logger = logging.getLogger("hojichar.Compose")
         self.before_process_inspector = Inspector(
             target_filter=BeforeProcessFilter(), filter_idx=-1
@@ -59,6 +59,21 @@ class Compose(Filter):
             self.rng = random_state
         else:
             raise ValueError(f"{random_state} cannot be used to seed.")
+
+    def set_filters(self, filters: List[Union[Filter, TokenFilter]]) -> None:
+        """
+        Set the filter to a Compose object. The filter is expanded if the
+        list of filters in the argument contains a filter bound by Compose.
+
+        Args:
+            filters (List[Union[Filter, TokenFilter]]): Target filters
+        """
+        self.filters: List[Union[Filter, TokenFilter]] = []
+        for filter in filters:
+            if isinstance(filter, Compose):
+                self.filters.extend(filter.filters)
+            else:
+                self.filters.append(filter)
 
     def __call__(self, text: str) -> str:
         document = Document(text)

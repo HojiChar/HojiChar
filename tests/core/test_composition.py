@@ -51,3 +51,10 @@ class TestCompose:
         assert cleaner.statistics["total_info"]["total_token_num"] == 2
         cleaner("foo hoge")
         assert cleaner.statistics["total_info"]["total_token_num"] == 4
+
+    def test_expand_filters(self):
+        cleaner1 = Compose([ExampleHojiChar(), ExampleHojiChar()])
+        cleaner2 = Compose([ExampleHojiChar(), cleaner1])
+        cleaner2("hello")
+        stats = cleaner2.statistics_obj
+        assert len(stats.layers_info) == 3
