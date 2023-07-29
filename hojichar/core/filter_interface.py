@@ -56,7 +56,7 @@ class Filter:
         """
         Parameters
         ----------
-        p : float, opt∏ional
+        p : float, optional
             Probability that this filter will be applied. Default=1
         """
         self.name = self.__class__.__name__
