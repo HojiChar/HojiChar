@@ -8,6 +8,13 @@
 
 Official docs: <https://hojichar.github.io/HojiChar/hojichar.html>
 
+## Features
+
+- HojiChar provides a way to combine multiple arbitrary text processing tasks into a streamlined pipeline.
+- The sequence of operations can be described declaratively, ensuring portability.
+- HojiChar allows users to gather detailed statistical information from large amounts of text during processing.
+- It enables management of any Python text processing tasks, providing a Command Line Interface (CLI) capable of parallel processing.
+
 ## Background and what is for HojiChar
 
 Text preprocessing is far from a one-size-fits-all process. Depending on the data source and the specific task at hand, various steps including normalization, noise removal, and filtering may be necessary. Not all texts require the same level of preprocessing. For instance, relatively clean texts may only need minimal filtering, while "dirtier" sources like Common Crawl data often require more thorough processing. As a result, the preprocessing profile has to be tailored to each specific domain.
@@ -335,4 +342,5 @@ The actual task for the manager is to apply the appropriate tag to the commit to
 
 ```
 git tag -a v0.1.2 -m "Version 0.1.2"
+git push origin v0.1.2
 ```
