@@ -4,6 +4,7 @@ import json
 import logging
 import multiprocessing
 import os
+import signal
 import sys
 from typing import Dict, Iterator, Tuple
 
@@ -71,6 +72,7 @@ def argparser() -> argparse.Namespace:
 
 
 def init_worker(filter: hojichar.Compose, args: argparse.Namespace) -> None:
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     global MAIN_FILTER, CLI_ARGS
     MAIN_FILTER = filter
     CLI_ARGS = args
@@ -105,9 +107,10 @@ def main() -> None:
     input_iter = stdin_iter()
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
     filter = load_compose(args.profile, *tuple(args.args))
-    with multiprocessing.Pool(
+    pool = multiprocessing.Pool(
         processes=args.jobs, initializer=init_worker, initargs=(filter, args)
-    ) as pool:
+    )
+    try:
         worker_out_iter = pool.imap_unordered(worker, input_doc_iter)
         out_doc_iter = out_doc_generator(worker_out_iter, pid_stats)
         out_str_iter = (
@@ -120,6 +123,10 @@ def main() -> None:
                 fileout_from_iter(out_str_iter, fp)
         else:
             stdout_from_iter(out_str_iter)
+    finally:
+        pool.close()
+        pool.join()
+        pool.terminate()
 
     stats: StatsContainer = functools.reduce(lambda x, y: x + y, pid_stats.values())
     print(
