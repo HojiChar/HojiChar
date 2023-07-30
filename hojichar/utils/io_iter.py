@@ -51,6 +51,6 @@ def stdout_from_iter(iter: Iterator[str]) -> None:
         sys.exit(1)
 
 
-def fileout_from_iter(iter: Iterator[str], fp: TextIO) -> None:
+def fileout_from_iter(fp: TextIO, iter: Iterator[str]) -> None:
     for line in iter:
         fp.write(line + "\n")

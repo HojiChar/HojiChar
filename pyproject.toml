@@ -15,6 +15,8 @@ hojichar = "hojichar.cli:main"
 python = "^3.8"
 numpy = ">=1.17.0"
 mmh3 = "^4.0"
+tqdm = "^4.65.0"
+types-tqdm = "^4.65.0.2"
 
 [tool.poetry.group.dev]
 optional = true
@@ -37,6 +39,7 @@ pytest-cov = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 taskipy = "^1.10.3"
+types-tqdm = "^4.65.0.2"
 
 
 [tool.poetry.group.doc.dependencies]
