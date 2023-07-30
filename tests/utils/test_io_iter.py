@@ -147,5 +147,5 @@ def test_stdout_from_iter(capture_stdout, test_data, expected_output):
 )
 def test_fileout_from_iter(test_data, expected_output):
     fp = io.StringIO()
-    fileout_from_iter(test_data, fp)
+    fileout_from_iter(fp, test_data)
     assert fp.getvalue() == expected_output

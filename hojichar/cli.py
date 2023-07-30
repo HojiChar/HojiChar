@@ -6,7 +6,9 @@ import multiprocessing
 import os
 import signal
 import sys
-from typing import Dict, Iterator, Tuple
+from typing import Callable, Dict, Iterator, Optional, Tuple
+
+import tqdm
 
 import hojichar
 from hojichar.core.inspection import StatsContainer
@@ -17,6 +19,21 @@ MAIN_FILTER: hojichar.Compose
 CLI_ARGS: argparse.Namespace
 
 logger = logging.getLogger("hojichar.cli")
+
+
+class ProgressBarIteratorWrapper:
+    def __init__(self, iter: Iterator[str], total_bytes: Optional[int] = None) -> None:
+        self.iter = iter
+        self.pbar = tqdm.tqdm(total=total_bytes, unit="B", unit_scale=True, unit_divisor=1024)
+
+    def __iter__(self) -> Iterator:
+        return self
+
+    def __next__(self) -> str:
+        next = self.iter.__next__()
+        delta_bytes = len(next.encode("utf-8"))
+        self.pbar.update(delta_bytes)
+        return next
 
 
 def argparser() -> argparse.Namespace:
@@ -40,6 +57,13 @@ def argparser() -> argparse.Namespace:
         "-o",
         default=None,
         help="Specifies the path for the output file. Defaults to standard output.",
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        default=None,
+        help="Specifies the path for the input file. Defaults to standard input.\
+            If set this path, the progress bar is enabled.",
     )
     parser.add_argument(
         "--dump-stats",
@@ -102,9 +126,27 @@ def out_doc_generator(
 
 def main() -> None:
     pid_stats: Dict[int, StatsContainer] = dict()
-
+    file_in = None
+    file_out = None
     args = argparser()
-    input_iter = stdin_iter()
+
+    input_iter: Iterator[str]
+    if args.input:
+        file_in = open(args.input)
+        input_iter = ProgressBarIteratorWrapper(
+            file_in,
+            total_bytes=os.path.getsize(args.input),
+        )
+    else:
+        input_iter = ProgressBarIteratorWrapper(stdin_iter())
+
+    writer: Callable[[Iterator[str]], None]
+    if args.output:
+        file_out = open(args.output, "w")
+        writer = functools.partial(fileout_from_iter, file_out)
+    else:
+        writer = stdout_from_iter
+
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
     filter = load_compose(args.profile, *tuple(args.args))
     pool = multiprocessing.Pool(
@@ -118,15 +160,17 @@ def main() -> None:
             if args.all
             else (doc.text for doc in out_doc_iter if not doc.is_rejected)
         )
-        if args.output:
-            with open(args.output, "w") as fp:
-                fileout_from_iter(out_str_iter, fp)
-        else:
-            stdout_from_iter(out_str_iter)
+        writer(out_str_iter)
+    except KeyboardInterrupt:
+        raise KeyboardInterrupt from None
     finally:
-        pool.close()
-        pool.join()
+        input_iter.pbar.close()
         pool.terminate()
+        pool.join()
+        if file_in:
+            file_in.close()
+        if file_out:
+            file_out.close()
 
     stats: StatsContainer = functools.reduce(lambda x, y: x + y, pid_stats.values())
     print(
