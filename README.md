@@ -139,16 +139,18 @@ It might be helpful to add examples demonstrating the use of `Compose
 - `hojichar --help`
 
   ```man
-    usage: hojichar [-h] --profile <profile.py> [--args ARGS [ARGS ...]] [--output OUTPUT] [--dump-stats <path to stats.json>] [--exit-on-error] [--all] [--jobs JOBS]
+    usage: hojichar [-h] --profile <profile.py> [--args ARGS [ARGS ...]] [--output OUTPUT] [--input INPUT] [--dump-stats <path to stats.json>] [--exit-on-error] [--all] [--jobs JOBS]
 
     options:
     -h, --help            show this help message and exit
     --profile <profile.py>, -p <profile.py>
                             Path to a Python file that implements your custom filter.
-    --args ARGS [ARGS ...]E
+    --args ARGS [ARGS ...]
                             Pass additional arguments to the profile. Use it like `--args arg1 arg2` etc. The arguments should be space-separated.
     --output OUTPUT, -o OUTPUT
                             Specifies the path for the output file. Defaults to standard output.
+    --input INPUT, -i INPUT
+                            Specifies the path for the input file. Defaults to standard input. If set this path, the progress bar is enabled.
     --dump-stats <path to stats.json>
                             Dump statistics to file. If the file exists, it will be appended.
     --exit-on-error       Exit if an exception occurs during filtering. Useful for debugging custom filters.
