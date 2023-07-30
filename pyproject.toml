@@ -16,7 +16,6 @@ python = "^3.8"
 numpy = ">=1.17.0"
 mmh3 = "^4.0"
 tqdm = "^4.65.0"
-types-tqdm = "^4.65.0.2"
 
 [tool.poetry.group.dev]
 optional = true

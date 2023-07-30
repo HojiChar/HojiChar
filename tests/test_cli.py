@@ -15,7 +15,7 @@ def test_cli_filter_profile(current_dir):
     test_profile = current_dir / "fixtures/sample_profile.py"
     test_input = current_dir / "fixtures/sample_in_100.jsonl"
     test_output = current_dir / "fixtures/sample_out_100.jsonl"
-    test_output_err = current_dir / "fixtures/sample_out_100_stderr.txt"
+    # test_output_err = current_dir / "fixtures/sample_out_100_stderr.txt"
 
     result = subprocess.run(
         ["hojichar", "-p", test_profile, "-j", "1"],
@@ -26,15 +26,6 @@ def test_cli_filter_profile(current_dir):
     assert result.returncode == 0
     assert result.stdout == open(test_output).read()
 
-    result_stats = json.loads(result.stderr).get("total_info")
-    expected_stats = json.loads(open(test_output_err).read()).get("total_info")
-
-    for key, val in result_stats.items():
-        if key == "cumulative_time":
-            continue
-
-        assert val == expected_stats.get(key)
-
 
 @pytest.mark.parametrize("num_jobs", [1, 2, 4, 8])
 def test_cli_filter_profile_multi_jobs(current_dir, num_jobs):
@@ -43,16 +34,19 @@ def test_cli_filter_profile_multi_jobs(current_dir, num_jobs):
     test_output = current_dir / "fixtures/sample_out_100.jsonl"
     test_output_err = current_dir / "fixtures/sample_out_100_stderr.txt"
 
-    result = subprocess.run(
-        ["hojichar", "-p", test_profile, "-j", str(num_jobs)],
-        input=open(test_input).read(),
-        capture_output=True,
-        text=True,
-    )
+    with tempfile.NamedTemporaryFile("w+") as tmpf:
+        result = subprocess.run(
+            ["hojichar", "-p", test_profile, "-j", str(num_jobs), "--dump-stats", tmpf.name],
+            input=open(test_input).read(),
+            capture_output=True,
+            text=True,
+        )
+        tmpf.seek(0)
+        stats = tmpf.read()
     assert result.returncode == 0
     assert set(result.stdout.split("\n")) == set(open(test_output).read().split("\n"))
 
-    result_stats = json.loads(result.stderr).get("total_info")
+    result_stats = json.loads(stats).get("total_info")
     expected_stats = json.loads(open(test_output_err).read()).get("total_info")
 
     for key, val in result_stats.items():

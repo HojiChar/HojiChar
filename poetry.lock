@@ -745,7 +745,7 @@ telegram = ["requests"]
 name = "types-tqdm"
 version = "4.65.0.2"
 description = "Typing stubs for tqdm"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 files = [
@@ -783,4 +783,4 @@ test = ["pytest (>=6.0.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "d8d640a2246056d75682b123f181d1463dd75144465302f786dde6baad6ed98d"
+content-hash = "bba7b7e92a46160cd7fc4f1b27d2ebf599b81a96623322e76bdc1d9537d169bf"
