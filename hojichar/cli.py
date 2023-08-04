@@ -91,6 +91,12 @@ def argparser() -> argparse.Namespace:
         type=int,
         help="The number ob parallel jobs. By default, the nuber of the CPU core.",
     )
+    parser.add_argument(
+        "--version",
+        "-v",
+        action="version",
+        version=hojichar.__version__,
+    )
     args = parser.parse_args()
     return args
 
