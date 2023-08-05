@@ -23,7 +23,7 @@ def test_processed_docs_count(num_jobs: int | None) -> None:
     filter = hojichar.Compose([JSONLoader(), JSONDumper()])
 
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
-        processed_docs = list(pfilter.imap_apply(iter(documents)))
+        list(pfilter.imap_apply(iter(documents)))
         assert pfilter.statistics_obj.total_info.processed_num == 10
 
 
@@ -43,10 +43,10 @@ def test_filter_statistics_increment(num_jobs: int | None) -> None:
     filter = hojichar.Compose([JSONLoader(), JSONDumper()])
 
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
-        processed_docs = list(pfilter.imap_apply(iter(documents)))
+        list(pfilter.imap_apply(iter(documents)))
 
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
-        processed_docs = list(pfilter.imap_apply(iter(documents)))
+        list(pfilter.imap_apply(iter(documents)))
 
     assert filter.statistics_obj.total_info.processed_num == 20
 
