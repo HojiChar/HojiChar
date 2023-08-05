@@ -67,6 +67,11 @@ class Parallel:
         Args:
             filter (hojichar.Compose): A composed filter object that specifies the
                 processing operations to apply to each document in parallel.
+                A copy of the filter is made within a 'with' statement. When the 'with'
+                block terminates,the statistical information obtained through `filter.statistics`
+                or`filter.statistics_obj` is replaced with the total value of the statistical
+                information processed within the 'with' block.
+
             num_jobs (int | None, optional): The number of worker processes to use.
                 If None, then the number returned by os.cpu_count() is used. Defaults to None.
             ignore_errors (bool, optional): If set to True, any exceptions thrown during
@@ -133,6 +138,13 @@ class Parallel:
 
     @property
     def statistics_obj(self) -> StatsContainer:
+        """
+        Returns a statistics object of the total statistical
+        values processed within the Parallel block.
+
+        Returns:
+            StatsContainer: Statistics object
+        """
         if self._pid_stats:
             stats: StatsContainer = functools.reduce(lambda x, y: x + y, self._pid_stats.values())
         else:
@@ -141,4 +153,11 @@ class Parallel:
 
     @property
     def statistics(self) -> dict:
+        """
+        Returns a statistics dict which friendly with human of the total statistical
+        values processed within the Parallel block.
+
+        Returns:
+            dict: Human readable statistics values
+        """
         return self.statistics_obj.get_human_readable_values()
