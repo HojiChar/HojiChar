@@ -21,7 +21,7 @@ WORKER_PARAM_IGNORE_ERRORS: bool
 def _init_worker(filter: hojichar.Compose, ignore_errors: bool) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     global PARALLEL_BASE_FILTER, WORKER_PARAM_IGNORE_ERRORS
-    PARALLEL_BASE_FILTER = filter
+    PARALLEL_BASE_FILTER = hojichar.Compose(copy(filter.filters))  # TODO random state treatment
     WORKER_PARAM_IGNORE_ERRORS = ignore_errors
 
 
