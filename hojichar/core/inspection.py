@@ -64,6 +64,12 @@ class FilterStatistics:
             self.params,
         )
 
+    def reset(self) -> FilterStatistics:
+        self.discard_num = 0
+        self.diff_bytes = 0
+        self.cumulative_time_ns = 0
+        return self
+
 
 @dataclasses.dataclass
 class DocStatistics:
@@ -95,6 +101,15 @@ class DocStatistics:
             self.total_token_num + other.total_token_num,
         )
 
+    def reset(self) -> DocStatistics:
+        self.processed_num = 0
+        self.discard_num = 0
+        self.input_bytes = 0
+        self.output_bytes = 0
+        self.cumulative_time_ns = 0
+        self.total_token_num = 0
+        return self
+
 
 @dataclasses.dataclass
 class StatsContainer:
@@ -115,6 +130,12 @@ class StatsContainer:
                 layer.get_human_readable_values() for layer in self.layers_info.values()
             ],
         }
+
+    def reset(self) -> StatsContainer:
+        self.total_info.reset
+        for layer in self.layers_info.values():
+            layer.reset()
+        return self
 
 
 class StatisticsCounter:

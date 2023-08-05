@@ -2,16 +2,14 @@ import argparse
 import functools
 import json
 import logging
-import multiprocessing
 import os
-import signal
 import sys
-from typing import Callable, Dict, Iterator, Optional, Tuple
+from typing import Callable, Iterator, Optional
 
 import tqdm
 
 import hojichar
-from hojichar.core.inspection import StatsContainer
+from hojichar.core.parallel import Parallel
 from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 from hojichar.utils.load_compose import load_compose
 
@@ -101,37 +99,7 @@ def argparser() -> argparse.Namespace:
     return args
 
 
-def init_worker(filter: hojichar.Compose, args: argparse.Namespace) -> None:
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    global MAIN_FILTER, CLI_ARGS
-    MAIN_FILTER = filter
-    CLI_ARGS = args
-
-
-def worker(doc: hojichar.Document) -> Tuple[hojichar.Document, int, StatsContainer]:
-    global MAIN_FILTER, CLI_ARGS
-    try:
-        return MAIN_FILTER.apply(doc), os.getpid(), MAIN_FILTER.statistics_obj
-    except Exception as e:
-        if CLI_ARGS.exit_on_error:
-            raise e
-        else:
-            logger.error(f"Caught {type(e)}. Skip processing the line: {doc.text}")
-            return hojichar.Document("", is_rejected=True), os.getpid(), MAIN_FILTER.statistics_obj
-
-
-def out_doc_generator(
-    worker_out_iter: Iterator[Tuple[hojichar.Document, int, StatsContainer]],
-    pid_stats: Dict[int, StatsContainer],
-) -> Iterator[hojichar.Document]:
-    for worker_out in worker_out_iter:
-        doc, pid, worker_stats = worker_out
-        pid_stats[pid] = worker_stats
-        yield doc
-
-
 def main() -> None:
-    pid_stats: Dict[int, StatsContainer] = dict()
     file_in = None
     file_out = None
     args = argparser()
@@ -155,30 +123,25 @@ def main() -> None:
 
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
     filter = load_compose(args.profile, *tuple(args.args))
-    pool = multiprocessing.Pool(
-        processes=args.jobs, initializer=init_worker, initargs=(filter, args)
-    )
     try:
-        worker_out_iter = pool.imap_unordered(worker, input_doc_iter)
-        out_doc_iter = out_doc_generator(worker_out_iter, pid_stats)
-        out_str_iter = (
-            (doc.text for doc in out_doc_iter)
-            if args.all
-            else (doc.text for doc in out_doc_iter if not doc.is_rejected)
-        )
-        writer(out_str_iter)
-    except KeyboardInterrupt:
-        raise KeyboardInterrupt from None
+        with Parallel(
+            filter=filter, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
+        ) as parallel_filter:
+            out_doc_iter = parallel_filter.imap_apply(input_doc_iter)
+            out_str_iter = (
+                (doc.text for doc in out_doc_iter)
+                if args.all
+                else (doc.text for doc in out_doc_iter if not doc.is_rejected)
+            )
+            writer(out_str_iter)
     finally:
         input_iter.pbar.close()
-        pool.terminate()
-        pool.join()
         if file_in:
             file_in.close()
         if file_out:
             file_out.close()
 
-    stats: StatsContainer = functools.reduce(lambda x, y: x + y, pid_stats.values())
+    stats = filter.statistics_obj
     print(
         json.dumps(stats.get_human_readable_values(), ensure_ascii=False, indent=2),
         file=sys.stderr,
