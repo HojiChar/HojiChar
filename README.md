@@ -121,9 +121,94 @@ The `p` argument passed to the `document_filters.AcceptJapanese` constructor det
 ## Additional Notes on Compose
 
 - Even though the behavior of a `Compose` object when called is a text-in, text-out function, `Compose` itself also inherits from the `Filter` class. Therefore, applying the `apply` method to a `Compose` object results in `hojihcar.Document` class being used as input and output.
-- You can access various statistics regarding the processing performed by `Compose` through `Compose.statistics`, which returns a dictionary.
+- `Compose` class behaves like a Filter. If you add a Compose object as one of the filters in the constructor of Compose, the filter will be unfolded recursively.
+- You can access various statistics regarding the processing performed by `Compose` through `Compose.statistics` or `Compose.statistics_obj`.
+  - `Compose.statistics` is a dictionary like above.
 
-It might be helpful to add examples demonstrating the use of `Compose
+    ```json
+    {
+    "total_info": {
+        "processed_num": 10928,
+        "discard_num": 5513,
+        "input_MB": 104.514584,
+        "output_MB": 25.33024,
+        "cumulative_time": 114.071047143,
+        "total_token_num": 0
+    },
+    "layers_info": [
+        {
+        "name": "0-JSONLoader",
+        "discard_num": 0,
+        "diff_MB": -1.9647932052612305,
+        "cumulative_time": 0.420034328,
+        "params": {
+            "name": "JSONLoader",
+            "p": 1,
+            "skip_rejected": true,
+            "key": "text",
+            "ignore": true
+        }
+        },
+        {
+        "name": "1-DocumentNormalizer",
+        "discard_num": 0,
+        "diff_MB": -1.5221118927001953,
+        "cumulative_time": 8.286988707,
+        "params": {
+            "name": "DocumentNormalizer",
+            "p": 1,
+            "skip_rejected": true
+        }
+        },
+        {
+        "name": "2-DocumentLengthFilter",
+        "discard_num": 344,
+        "diff_MB": -0.05566596984863281,
+        "cumulative_time": 0.093768306,
+        "params": {
+            "name": "DocumentLengthFilter",
+            "p": 1,
+            "skip_rejected": true,
+            "min_doc_len": 100,
+            "max_doc_len": null
+        }
+        },
+    ]
+    }
+    ```
+
+- `Compose.statistics_obj` is a `hojichar.StatsContainer` class. The `hojichar.StatsContainer` class stores the raw values of the statistics dictionary, and addition operations are defined to easily calculate the total statistics processed with the same filter. You can get the statistics dictionary by calling `Compose.statistics_obj.get_human_readable_values()`.
+
+## Parallel application of `Compose`
+
+The `hojichar.Parallel` class allows for the application of `Compose` to an iterable of `Document` concurrently. This class empowers users to process vast collections of documents by harnessing the power of multiple CPU cores.
+
+Example usage of `Parallel` class to proces a very large JSON Lines file concurrently.
+
+```python
+import hojichar
+
+input_file = "your_text.jsonl"
+input_doc_iter = (hojichar.Document(line) for line in open(input_file))
+
+cleaner = hojichar.Compose([
+    hojichar.document_filters.JSONLoader(),
+    hojichar.document_filters.DocumentNormalizer(),
+    # Insert your filters
+    hojichar.document_filters.JSONDumper(),
+])
+
+with hojichar.Parallel(cleaner, num_jobs=10) as pfilter:
+    out_doc_iter = pfilter.imap_apply(input_doc_iter)
+    with open("your_processed_text.jsonl", "w") as fp:
+        for doc in out_doc_iter:
+            fp.write(doc.text + "\n")
+
+```
+
+- Always use the `Parallel` class within a `with` statement.
+- `Parallel.imap_apply(doc_iter)` processes an iterator of `Document` and returns an iterator of the processed documents.
+- For additional options and details about the `Parallel` class, please refer to the official documentation.
 
 ## CLI tool and preprocessing profile
 
