@@ -511,7 +511,7 @@ class AcceptJapanese(Filter):
     def __init__(self, lookup_size: int = 50, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.lookup_size = 50
+        self.lookup_size = lookup_size
         self.hiragana_katakana_pat = re.compile(r"[ぁ-んァ-ン]")
 
     def apply(self, doc: Document) -> Document:
