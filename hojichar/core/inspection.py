@@ -157,7 +157,6 @@ class StatisticsCounter:
         before_process_inspector: Inspector,
         inspectors: List[Inspector],
     ) -> None:
-
         # Counting statistics for each filter
         previous_inspector = before_process_inspector
         for idx, inspector in enumerate(inspectors):

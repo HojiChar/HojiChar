@@ -39,6 +39,15 @@ def test_ng_words_filter_ja_ignore_confused():
     assert not ng_words_filter_ja.apply(Document("ララーメンスープ")).is_rejected
 
 
+def test_ng_words_filter_ja_max_allowed_num():
+    dict_path = BASE_PATH / "dict/dummy_ng_words.txt"
+    ng_words_filter_ja = NgWordsFilterJa(dict_path, max_allowed_num=1)
+    assert not ng_words_filter_ja.apply(Document("ほうじ茶")).is_rejected
+    assert not ng_words_filter_ja.apply(Document("ほ うじ茶")).is_rejected
+    assert ng_words_filter_ja.apply(Document("ほうじ茶 ほ うじ茶")).is_rejected
+    assert ng_words_filter_ja.apply(Document("ほうじ茶 ほうじ茶")).is_rejected
+
+
 def test_ng_words_filter_en():
     dict_path = BASE_PATH / "dict/dummy_ng_words.txt"
     ng_words_filter_en = NgWordsFilterEn(dict_path)
@@ -60,3 +69,12 @@ def test_ng_words_filter_en():
     assert ng_words_filter_en.apply(Document("He eats ramen, gyoza and fried rice.")).is_rejected
     assert ng_words_filter_en.apply(Document("Ramen is delicious.")).is_rejected
     assert not ng_words_filter_en.apply(Document("They are cameramen.")).is_rejected
+
+
+def test_ng_words_filter_en_max_allowed_num():
+    dict_path = BASE_PATH / "dict/dummy_ng_words.txt"
+    ng_words_filter_en = NgWordsFilterEn(dict_path, max_allowed_num=1)
+    assert not ng_words_filter_en.apply(Document("hojichar")).is_rejected
+    assert not ng_words_filter_en.apply(Document("h ojicha")).is_rejected
+    assert ng_words_filter_en.apply(Document("hojichar h ojicha")).is_rejected
+    assert ng_words_filter_en.apply(Document("hojichar hojichar")).is_rejected
