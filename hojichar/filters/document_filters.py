@@ -291,8 +291,8 @@ class NgWordsFilterJa(Filter):
         self.matched_text_neighbors: List[str] = []
 
     def apply(self, doc: Document) -> Document:
-        self.matched_texts: List[str] = []
-        self.matched_text_neighbors: List[str] = []
+        self.matched_texts = []
+        self.matched_text_neighbors = []
 
         matches = list(self.keyword_pat.finditer(doc.text))
         for match in matches:
@@ -330,8 +330,8 @@ class NgWordsFilterEn(Filter):
         self.matched_text_neighbors: List[str] = []
 
     def apply(self, doc: Document) -> Document:
-        self.matched_texts: List[str] = []
-        self.matched_text_neighbors: List[str] = []
+        self.matched_texts = []
+        self.matched_text_neighbors = []
 
         matches = list(self.keyword_pat.finditer(doc.text))
         for match in matches:
