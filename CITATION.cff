@@ -1,8 +1,34 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+title: HojiChar
+message: "HojiChar: The text processing pipeline."
+type: software
 authors:
-  - family-names: "Kenta"
-    given-names: "Shinzato"
-title: "HojiChar"
-date-released: 2023-01-31
-url: "https://github.com/HojiChar/HojiChar"
+  - given-names: Kenta
+    family-names: Shinzato
+    email: hoppiece@gmail.com
+identifiers:
+  - type: url
+    value: >-
+      https://github.com/HojiChar/HojiChar/releases/tag/v0.9.0
+    description: The URL of version 0.9.0 of the software
+repository-code: "https://github.com/HojiChar/HojiChar"
+url: "https://hojichar.github.io/HojiChar/hojichar.html"
+abstract: >-
+  The robust text processing pipeline framework enables
+  customizable, efficient, and metric-logged text
+  preprocessing.
+keywords:
+  - preprocess
+  - normalization
+  - corpus
+  - text filtering
+  - pipeline
+  - python
+  - natural language processing
+license: Apache-2.0
+commit: e74adfc86306991b7fd51795ff61a1eb2aac62e2
+version: 0.9.0
+date-released: "2023-09-06"
