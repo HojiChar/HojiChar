@@ -1,4 +1,4 @@
-# HojiChar
+# HojiChar: The Text Processing Pipeline
 
 [![PyPI version](https://badge.fury.io/py/hojichar.svg)](https://badge.fury.io/py/hojichar)
 [![Python Versions](https://img.shields.io/pypi/pyversions/hojichar.svg)](https://pypi.org/project/hojichar/)
