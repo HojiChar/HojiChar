@@ -2,7 +2,7 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: HojiChar
+title: "HojiChar: The text processing pipeline"
 message: "HojiChar: The text processing pipeline."
 type: software
 authors:
