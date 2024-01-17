@@ -5,7 +5,7 @@ import re
 import time
 import unicodedata
 from os import PathLike
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 import hojichar
 from hojichar.core.filter_interface import Filter
@@ -250,12 +250,16 @@ class NgWordsFilterJa(Filter):
     `ignore_confused` を `True` にすると,
     偽陽性を軽減するために, カタカナのNGワードは前後にカタカナが無い場合のみNG判定されます.
     デフォルト値は `False` です.
+
+    `max_allowed_num` で指定した回数以上NGワードが出現した場合に文書を破棄します.
+    デフォルト値は `0` です.
     """
 
     def __init__(
         self,
         dict_path: Union[str, PathLike],
         ignore_confused: bool = False,
+        max_allowed_num: int = 0,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -282,15 +286,20 @@ class NgWordsFilterJa(Filter):
             pat = "|".join(ng_words)
             self.keyword_pat = re.compile(pat)
 
-    def apply(self, doc: Document) -> Document:
-        regex_match = self.keyword_pat.search(doc.text)
-        if regex_match:
-            doc.is_rejected = True
-            self.matched_text = regex_match.group()
-            self.matched_text_neighbor = doc.text[
-                regex_match.start() - 20 : regex_match.end() + 20
-            ]
+        self.max_allowed_num = max_allowed_num
+        self.matched_texts: List[str] = []
+        self.matched_text_neighbors: List[str] = []
 
+    def apply(self, doc: Document) -> Document:
+        self.matched_texts = []
+        self.matched_text_neighbors = []
+
+        matches = list(self.keyword_pat.finditer(doc.text))
+        for match in matches:
+            self.matched_texts.append(match.group())
+            self.matched_text_neighbors.append(doc.text[match.start() - 20 : match.end() + 20])
+        if len(matches) > self.max_allowed_num:
+            doc.is_rejected = True
         return doc
 
 
@@ -299,9 +308,14 @@ class NgWordsFilterEn(Filter):
     英語のNGワード(および不適切語)を含む文書を破棄します.
     `dict_path` で指定したファイルから, キーワードのリストを得ます.
     ファイルは単語が改行で羅列されたテキストファイルです.
+
+    `max_allowed_num` で指定した回数以上NGワードが出現した場合に文書を破棄します.
+    デフォルト値は `0` です.
     """
 
-    def __init__(self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, dict_path: Union[str, PathLike], max_allowed_num: int = 0, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -309,10 +323,21 @@ class NgWordsFilterEn(Filter):
         ng_words = [re.escape(w.strip()) for w in ng_words if not len(w) == 0]
         pat = "|".join(ng_words)
         # 英語のパターンにマッチするようにしている, \s[単語]\s や [単語]. [単語], などにマッチ.
-        self.keyword_pat = re.compile(rf"(?:^| )({pat})(?:( |,|\.)|$)", re.IGNORECASE)
+        self.keyword_pat = re.compile(rf"((?<=^)|(?<=\s))({pat})(?=([ ,.])|$)", re.IGNORECASE)
+
+        self.max_allowed_num = max_allowed_num
+        self.matched_texts: List[str] = []
+        self.matched_text_neighbors: List[str] = []
 
     def apply(self, doc: Document) -> Document:
-        if self.keyword_pat.search(doc.text):
+        self.matched_texts = []
+        self.matched_text_neighbors = []
+
+        matches = list(self.keyword_pat.finditer(doc.text))
+        for match in matches:
+            self.matched_texts.append(match.group())
+            self.matched_text_neighbors.append(doc.text[match.start() - 20 : match.end() + 20])
+        if len(matches) > self.max_allowed_num:
             doc.is_rejected = True
         return doc
 
@@ -434,9 +459,9 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
 class DiscardBBSComments(Filter):
     """
-    正規表現 "BBS Patern" に `max_allow_num` 回よりたくさんマッチする文書を破棄します.
-    `max_allow_num` のデフォルト値は14です.
-    正規表現 "BBS Patern" は下記のリンクで検証可能です.
+    正規表現 "BBS Pattern" に `max_allowed_num` 回よりたくさんマッチする文書を破棄します.
+    `max_allowed_num` のデフォルト値は14です.
+    正規表現 "BBS Pattern" は下記のリンクで検証可能です.
     https://regex101.com/r/ybQvL2/1
     """
 
