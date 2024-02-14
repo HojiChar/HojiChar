@@ -2,6 +2,7 @@ from typing import List
 
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document
+from typing import Any
 
 
 class BlankCharTokenizer(Filter):
@@ -29,12 +30,19 @@ class MergeTokens(Filter):
     破棄されていないトークンを結合し, Document を更新します.
     """
 
+    def __init__(self, delimiter: str = "", *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.delimiter = delimiter
+
     def merge(self, tokens: List[str]) -> str:
         """
         >>> MergeTokens().merge(["hoo", "bar"])
         'hoobar'
+
+        >>> MergeTokens("\\n").merge(["hoo", "bar"])
+        'hoo\\nbar'
         """
-        return "".join(tokens)
+        return self.delimiter.join(tokens)
 
     def apply(self, document: Document) -> Document:
         remained_tokens = [token.text for token in document.tokens if not token.is_rejected]
