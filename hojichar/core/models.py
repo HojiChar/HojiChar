@@ -17,13 +17,16 @@ class Token:
 
 class Document:
     def __init__(
-        self, text: str, is_rejected: bool = False, tokens: Optional[List[Token]] = None
+        self, text: str, is_rejected: bool = False, tokens: Optional[List[Token]] = None, extras: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.text = text
         self.__original = text
         self.is_rejected = is_rejected
         if tokens is None:
             self.tokens: List[Token] = []
+
+        if extras is None:
+            self.extras: Dict[str, Any] = {}
 
         self.dedup_lsh: List[str] = []
         self.reject_reason: Dict[str, Any] = {}
