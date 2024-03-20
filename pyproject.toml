@@ -27,7 +27,7 @@ optional = true
 optional = true
 
 [tool.poetry.group.lint.dependencies]
-black = "^22.3.0"
+black = ">=22.3,<25.0"
 flake8 = "^4.0.1"
 isort = "^5.10.1"
 mypy = "^1.0"
