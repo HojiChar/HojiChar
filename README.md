@@ -376,7 +376,7 @@ Linting
 poetry run task lint
 ```
 
-Formtatting
+Formatting
 
 ```
 poetry run task format
