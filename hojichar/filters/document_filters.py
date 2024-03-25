@@ -434,9 +434,9 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
 class DiscardBBSComments(Filter):
     """
-    正規表現 "BBS Patern" に `max_allow_num` 回よりたくさんマッチする文書を破棄します.
+    正規表現 "BBS Pattern" に `max_allow_num` 回よりたくさんマッチする文書を破棄します.
     `max_allow_num` のデフォルト値は14です.
-    正規表現 "BBS Patern" は下記のリンクで検証可能です.
+    正規表現 "BBS Pattern" は下記のリンクで検証可能です.
     https://regex101.com/r/ybQvL2/1
     """
 
