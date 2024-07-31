@@ -85,6 +85,7 @@ class YourFilter(Filter):
 
 The `apply` method accepts a `hojichar.Document` type as an argument and returns it after the transformations. The [`Document`](https://hojichar.github.io/HojiChar/hojichar.html#Document) is a class that encapsulates a string.
 
+The Document class can have additional metadata via the extras attribute. This allows you to associate values with the document that can be utilized in subsequent filters.
 **Reject documents**
 
 - The `hojichar.Document` has an `is_rejected` attribute. If a filter sets this flag to `True`, `Compose` will discard the document during processing.

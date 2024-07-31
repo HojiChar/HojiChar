@@ -13,7 +13,10 @@ hojichar = "hojichar.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-numpy = ">=1.17.0"
+numpy = [
+  {version = ">=1.26", python = ">=3.9"},
+  {version = "<1.25", python = "=3.8"}
+]
 mmh3 = "^4.0"
 tqdm = "^4.65.0"
 

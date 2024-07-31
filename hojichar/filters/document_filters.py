@@ -5,7 +5,7 @@ import re
 import time
 import unicodedata
 from os import PathLike
-from typing import List, Any, Optional, Union
+from typing import Any, List, Optional, Union
 
 import hojichar
 from hojichar.core.filter_interface import Filter
@@ -127,7 +127,14 @@ class JSONLoader(Filter):
     したドキュメントは破棄されます.
     """
 
-    def __init__(self, key: str = "text", ignore: bool = False, extra_keys: Optional[List[str]] = [], *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        key: str = "text",
+        ignore: bool = False,
+        extra_keys: Optional[List[str]] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.key = key
         self.ignore = ignore
@@ -154,8 +161,10 @@ class JSONLoader(Filter):
         try:
             data = json.loads(document.text)
             document.text = str(data[self.key])
-            document.extras = {key: data[key] for key in self.extra_keys if key in data }
+            if self.extra_keys is not None:
+                document.extras = {key: data[key] for key in self.extra_keys if key in data}
         except Exception as e:
+            logger.error(f"Failed to parsing in JSONLoader. Input document: \n{document.text}")
             if self.ignore:
                 document.is_rejected = True
                 return document
