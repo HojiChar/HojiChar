@@ -162,13 +162,9 @@ class JSONLoader(Filter):
             data = json.loads(document.text)
             document.text = str(data[self.key])
             if self.extra_keys is not None:
-                document.extras = {
-                    key: data[key] for key in self.extra_keys if key in data
-                }
+                document.extras = {key: data[key] for key in self.extra_keys if key in data}
         except Exception as e:
-            logger.error(
-                f"Failed to parsing in JSONLoader. Input document: \n{document.text}"
-            )
+            logger.error(f"Failed to parsing in JSONLoader. Input document: \n{document.text}")
             if self.ignore:
                 document.is_rejected = True
                 return document
@@ -316,9 +312,7 @@ class NgWordsFilterEn(Filter):
     ファイルは単語が改行で羅列されたテキストファイルです.
     """
 
-    def __init__(
-        self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any
-    ) -> None:
+    def __init__(self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -403,8 +397,7 @@ class DiscardDiscriminationContentJa(NgWordsFilterJa):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH
-        / "dict/discrimination_keywords_ja.txt",
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/discrimination_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ):
@@ -491,8 +484,7 @@ class DiscardAds(Filter):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH
-        / "dict/advertisement_keywords_ja.txt",
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
         max_allowed_num: int = 14,
         *args: Any,
         **kwargs: Any,
@@ -558,9 +550,7 @@ class DiscardRareKuten(Filter):
     このフィルタは, 文章中の句点の割合が少なすぎるドキュメントを破棄します.
     """
 
-    def __init__(
-        self, max_average_sentence_length: int = 100, *args: Any, **kwargs: Any
-    ) -> None:
+    def __init__(self, max_average_sentence_length: int = 100, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         self.max_average_sentence_length = max_average_sentence_length
@@ -592,8 +582,7 @@ class HeaderFooterTagsRemover(Filter):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH
-        / "dict/header_footer_keywords_ja.txt",
+        dict_path: Union[str, PathLike] = BASE_PATH / "dict/header_footer_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
