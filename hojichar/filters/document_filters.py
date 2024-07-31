@@ -127,7 +127,14 @@ class JSONLoader(Filter):
     したドキュメントは破棄されます.
     """
 
-    def __init__(self, key: str = "text", ignore: bool = False, extra_keys: Optional[List[str]] = [], *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        key: str = "text",
+        ignore: bool = False,
+        extra_keys: Optional[List[str]] = [],
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.key = key
         self.ignore = ignore
@@ -154,7 +161,7 @@ class JSONLoader(Filter):
         try:
             data = json.loads(document.text)
             document.text = str(data[self.key])
-            document.extras = {key: data[key] for key in self.extra_keys if key in data }
+            document.extras = {key: data[key] for key in self.extra_keys if key in data}
         except Exception as e:
             if self.ignore:
                 document.is_rejected = True

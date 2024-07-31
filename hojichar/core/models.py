@@ -17,7 +17,11 @@ class Token:
 
 class Document:
     def __init__(
-        self, text: str, is_rejected: bool = False, tokens: Optional[List[Token]] = None, extras: Optional[Dict[str, Any]] = None,
+        self,
+        text: str,
+        is_rejected: bool = False,
+        tokens: Optional[List[Token]] = None,
+        extras: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.text = text
         self.__original = text

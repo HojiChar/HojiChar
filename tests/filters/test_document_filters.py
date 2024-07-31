@@ -27,7 +27,9 @@ class TestSentenceTokenizer:
 
 class TestJSONLoader:
     def test_apply(self):
-        data = '{"text": "おはよう。おやすみ。ありがとう。さよなら。", "url": "https://example.com", "title": "example"}'
+        data = (
+            '{"text": "おはよう。おやすみ。ありがとう。さよなら。", "url": "https://example.com", "title": "example"}'
+        )
         doc = Document(data)
         loaded = document_filters.JSONLoader().apply(doc)
         assert loaded.text == "おはよう。おやすみ。ありがとう。さよなら。"
