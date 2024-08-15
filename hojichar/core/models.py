@@ -31,6 +31,8 @@ class Document:
 
         if extras is None:
             self.extras: Dict[str, Any] = {}
+        else:
+            self.extras = extras
 
         self.dedup_lsh: List[str] = []
         self.reject_reason: Dict[str, Any] = {}
