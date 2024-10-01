@@ -23,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry
           poetry config virtualenvs.create false
-          poetry install --with doc
+          poetry install --with doc --all-extras
       - name: Document generation
         run: |
           pdoc -o docs hojichar

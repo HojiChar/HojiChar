@@ -6,7 +6,13 @@ from .core.filter_interface import Filter, TokenFilter
 from .core.inspection import StatsContainer
 from .core.models import Document, Token
 from .core.parallel import Parallel
-from .filters import deduplication, document_filters, token_filters, tokenization
+from .filters import (
+    deduplication,
+    document_filters,
+    language_identification,
+    token_filters,
+    tokenization,
+)
 
 __version__ = "0.0.0"  # Replaced by poetry-dynamic-versioning when deploying
 
@@ -23,6 +29,7 @@ __all__ = [
     "StatsContainer",
     "deduplication",
     "document_filters",
+    "language_identification",
     "token_filters",
     "tokenization",
 ]
