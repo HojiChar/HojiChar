@@ -1014,3 +1014,30 @@ class DiscardTooManyEndingEllipsis(Filter):
         if ellipsis_ratio > self.threshold:
             doc.is_rejected = True
         return doc
+
+
+class DiscardTooShortLines(Filter):
+    """
+    短い行を大量に含む文書を捨てるためのフィルタです.
+
+    メニューバーやパンくずリストのような要素を大量に含む文書を取り除くのに有効です.
+    """
+
+    def __init__(self, threshold: float = 0.5, *args: Any, **kwargs: Any) -> None:
+        """
+        Args:
+            threshold: The document is removed if the ratio of short (<10 chars) lines are more than this value.
+            *args:
+            **kwargs:
+        """  # noqa: E501
+        super().__init__(*args, **kwargs)
+        self.threshold = threshold
+        # この値は適当に決め打ち
+        self.minimum_line_length = 10
+
+    def apply(self, doc: Document) -> Document:
+        lines = [len(x) for x in doc.text.split("\n")]
+        short_lines = [x for x in lines if x <= self.minimum_line_length]
+        if (len(short_lines) / len(lines)) > self.threshold:
+            doc.is_rejected = True
+        return doc
