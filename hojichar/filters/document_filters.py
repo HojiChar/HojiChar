@@ -914,9 +914,9 @@ class DiscardTooManySpecialToken(Filter):
             "゜ʼ≖ʼ¤℃√！？【】‿∞➤～πه۩☛₨➩☻๑٪♥ıॽ《‘©﴿٬？▷Г♫∟™ª₪®「—❖"
             "」﴾》�"
         )
-        
+
         en_emoji = emoji.EMOJI_DATA.keys()
-        
+
         special_characters_default = set(main_special_characters + other_special_characters)
         special_characters_default.update(en_emoji)
         self.special_characters = special_characters_default
