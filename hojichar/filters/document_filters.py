@@ -972,3 +972,45 @@ class SingleCharacterRepetitionFilter(Filter):
         if self._is_repeat_contained(doc.text):
             doc.is_rejected = True
         return doc
+
+
+class DiscardTooManyEndingEllipsis(Filter):
+    """
+    ellipsisで終わるような行が大量に含まれるような文書を取り除くためのフィルタです.
+    ellipsisとしては ... と … を用いている
+    同様のフィルタが RedPajama v2で用いられています.
+
+    例として, 以下のような文書を検知します.
+    ```
+    ペアーズは女性、という驚愕の過食が出ているのをごアラサーですか。時代から付...
+    バツイチアラフォー 婚活ち女性の特徴と子持な付...
+    ```
+
+    デフォルトではしきい値を0.7としているが, これはC4から0.1%を削るような設定であり、
+    precisionを重視した設定です.
+    """
+
+    def __init__(
+        self,
+        threshold: float = 0.7,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            threshold: The document is removed if ratio of lines ending with ellipsis is higher than this value
+            *args:
+            **kwargs:
+        """  # noqa: E501
+        super().__init__(*args, **kwargs)
+        self.threshold = threshold
+        self.ellipsis_pattern = re.compile(r"(\.{3}|…)\n")  # matches ...\n and …\n
+
+    def apply(self, doc: Document) -> Document:
+        ellipsis_count = len(self.ellipsis_pattern.findall(doc.text))
+        newline_count = max(doc.text.count("\n"), 1)  # avoid zero division
+        ellipsis_ratio = ellipsis_count / newline_count
+
+        if ellipsis_ratio > self.threshold:
+            doc.is_rejected = True
+        return doc
