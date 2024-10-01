@@ -10,7 +10,7 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v3
@@ -22,7 +22,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
       - name: Install dependencies
-        run: poetry install --with test
+        run: poetry install --with test --all-extras
       - name: Test with pytest and doctest
         run: |
           poetry run pytest --cov -v --doctest-modules .
@@ -67,6 +67,6 @@ jobs:
           python-version: ${{ env.python-version }}
           cache: "poetry"
       - name: Install dependencies
-        run: poetry install --with lint
+        run: poetry install --with lint --all-extras
       - name: Mypy type checking
         run: poetry run mypy --explicit-package-bases hojichar

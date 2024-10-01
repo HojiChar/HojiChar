@@ -4,12 +4,20 @@ import pathlib
 import re
 import time
 import unicodedata
+from collections import Counter
 from os import PathLike
 from typing import Any, List, Optional, Union
 
 import hojichar
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document, Token
+
+try:
+    from fugashi import Tagger  # type: ignore
+
+    is_loaded_extras = True
+except ImportError:
+    is_loaded_extras = False
 
 BASE_PATH = pathlib.Path(hojichar.__path__[0])
 logger = logging.getLogger(__name__)
@@ -677,4 +685,53 @@ class MaskPersonalInformation(Filter):
         text = self.phone_pat.sub(r"\1XXXX", doc.text)
         text = self.email_pat.sub(r"xxxx@yyy\1", text)
         doc.text = text
+        return doc
+
+
+class DiscardTooManyNouns(Filter):
+    """
+    [!CAUTION] This filter requires `fugashi` package. Please install it
+    by `pip install 'hojichar[all]'`.
+
+    A filter that removes document with too many nouns in Japanese i.e.,
+    documents such as advertisement, word salad, etc ...
+    """
+
+    def __init__(self, threshold: float = 0.80, *args: Any, **kwargs: Any) -> None:
+        """
+        Args:
+            threshold: document whose noun ratio is higher than this value will be discarded
+            *args:
+            **kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        assert (
+            is_loaded_extras
+        ), "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+
+        self.threshold = threshold
+        self.tagger = Tagger("-Owakati")
+        assert (
+            "unidic" in self.tagger.dictionary_info[0]["filename"]
+        ), "MeCab dictionary must be unidic"
+
+    def apply(self, doc: Document) -> Document:
+        """
+        >>> DiscardTooManyNouns().apply(Document("自然言語処理大好き！")).is_rejected
+        False
+        >>> DiscardTooManyNouns().apply(Document("リンゴ・オレンジ・ミカン・バナナ セール中")).is_rejected
+        True
+        >>> DiscardTooManyNouns().apply(Document("今日の仙台朝市ではリンゴがセール中")).is_rejected
+        False
+        """
+        # remove "補助記号" from part-of-speech statistics
+        # because they often decrease the noun ratio,
+        # e.g., the sentence "リンゴ・オレンジ・バナナ・" has 補助記号 ratio of 0.5
+        # however, we don't want such sentence
+        pos_count = Counter(
+            w.feature.pos1 for w in self.tagger(doc.text) if w.feature.pos1 != "補助記号"
+        )
+        noun_ratio = pos_count["名詞"] / sum(pos_count.values())
+        if noun_ratio >= self.threshold:
+            doc.is_rejected = True
         return doc
