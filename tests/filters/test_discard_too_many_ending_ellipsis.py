@@ -12,6 +12,6 @@ from hojichar.filters.document_filters import DiscardTooManyEndingEllipsis
         ("", False),
     ],
 )
-def test_discard_too_many_ending_ellipsis(input_str: str, is_rejected : bool) -> None:
+def test_discard_too_many_ending_ellipsis(input_str: str, is_rejected: bool) -> None:
     filter = DiscardTooManyEndingEllipsis()
     assert filter.apply(Document(input_str)).is_rejected == is_rejected
