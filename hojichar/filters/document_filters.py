@@ -6,6 +6,7 @@ import string
 import time
 import unicodedata
 from collections import Counter
+from itertools import groupby
 from os import PathLike
 from typing import Any, Dict, List, Optional, Union
 
@@ -913,8 +914,9 @@ class DiscardTooManySpecialToken(Filter):
             "゜ʼ≖ʼ¤℃√！？【】‿∞➤～πه۩☛₨➩☻๑٪♥ıॽ《‘©﴿٬？▷Г♫∟™ª₪®「—❖"
             "」﴾》�"
         )
-        # there is no `ja` emojis :cry:
-        en_emoji = list(emoji.UNICODE_EMOJI["en"].keys())  # type: ignore
+        
+        en_emoji = emoji.EMOJI_DATA.keys()
+        
         special_characters_default = set(main_special_characters + other_special_characters)
         special_characters_default.update(en_emoji)
         self.special_characters = special_characters_default
@@ -934,5 +936,39 @@ class DiscardTooManySpecialToken(Filter):
         special_characters_ratio = self._compute_special_characters_ratio(doc.text)
 
         if special_characters_ratio > self.threshold:
+            doc.is_rejected = True
+        return doc
+
+
+class SingleCharacterRepetitionFilter(Filter):
+    """
+    単一文字が大量に繰り返されているような文書を取り除くためのフィルタ
+    そのような文書はノイズである可能性が高いため
+    参考: BigScienceプロジェクトによると、oscarデータセットの中にバックスラッシュだけを2M個含むような文書が含まれていたらしい
+    https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide/chronicles.md#2m-backslash-only-samples-in-our-dataset  # noqa: E501
+    """
+
+    def __init__(
+        self,
+        threshold: int = 200,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            threshold: The document is removed if character is repeated for this value or more
+            *args:
+            **kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        self.threshold = threshold
+
+    def _is_repeat_contained(self, text: str) -> bool:
+        groups = groupby(text)
+        is_repeat_contained = any(sum(1 for _ in group) >= self.threshold for _, group in groups)
+        return is_repeat_contained
+
+    def apply(self, doc: Document) -> Document:
+        if self._is_repeat_contained(doc.text):
             doc.is_rejected = True
         return doc
