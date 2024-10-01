@@ -31,6 +31,12 @@ While there are other text normalization tools available, most are designed to p
 pip install hojichar
 ```
 
+If you want to use the additional filters, install the package with the following command:
+
+```
+pip install hojichar[all]
+```
+
 ## Defining a Compose Object
 
 The [`Compose`](https://hojichar.github.io/HojiChar/hojichar.html#Compose) class in HojiChar allows you to create a sequence of text processing filters.
