@@ -1,11 +1,10 @@
 import hashlib
 import logging
 import os
-import pathlib
 import time
 from os import PathLike
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 
 import requests
 from fasttext import load_model  # type: ignore
@@ -21,7 +20,7 @@ MODEL_CHECKSUM = "01810bc59c6a3d2b79c79e6336612f65"
 
 
 def _download_with_progress_bar(
-    download_url: str, save_path: PathLike[str], retries: int = 3, delay: float = 1.0
+    download_url: str, save_path: Union[str, PathLike[str]], retries: int = 3, delay: float = 1.0
 ) -> None:
     try:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
@@ -83,7 +82,7 @@ class LanguageIdentificationByFastText(Filter):
         self,
         language: str,
         lang_score_threshold: float = 0.50,
-        model_path: Optional[pathlib.Path] = None,
+        model_path:  Union[str, PathLike[str], None] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -105,7 +104,7 @@ class LanguageIdentificationByFastText(Filter):
         self.lang_score_threshold = lang_score_threshold
         self.language = language
 
-        self.model_path = model_path if model_path else Path(os.getcwd()) / "lid.176.bin"
+        self.model_path = Path(model_path) if model_path else Path(os.getcwd()) / "lid.176.bin"
 
         if not self.model_path.exists():
             logger.info("Fasttext model file was not found.")
@@ -150,7 +149,7 @@ class AcceptJapaneseByFastText(LanguageIdentificationByFastText):
     def __init__(
         self,
         lang_score_threshold: float = 0.50,
-        model_path: Optional[pathlib.Path] = None,
+        model_path:  Union[str, PathLike[str], None] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
