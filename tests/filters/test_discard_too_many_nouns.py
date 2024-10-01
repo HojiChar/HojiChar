@@ -21,7 +21,7 @@ def test_discard_too_many_nouns() -> None:
     郷土料理. 餃子・点心. 漬物. いろいろな麺類. お好み焼き・焼そば. 味噌汁・スープ. 串カツ・串揚げ. キャンピングカー作り 郷土料理 餃子・点心 居酒屋・ダイニング・お酒処 -
     かおまるっちの大阪食べ歩き日記\n郷土料理. 餃子・点心. 漬物. いろいろな麺類. お好み焼き・焼そば. 味噌汁・スープ. 串カツ・串揚げ. キャンピングカー作り 郷土料理 餃子・点心 居酒屋・ダイニング
     ・お酒処+ラーメン. | ラーメン.+郷土料理. 餃子・点心. 漬物. いろいろな麺類. お好み焼き・焼そば. 味噌汁・スープ. 串カツ・串揚げ.
-    """ # noqa
+    """  # noqa
 
     garbage_doc_3 = """
     ウェブ\n本文: 病院ホームページ検索-秋田県仙北郡/リハビリテーション科\n仙北郡/リハビリテーション科の病院・医院・診療所のサイトを探すなら
@@ -31,4 +31,3 @@ def test_discard_too_many_nouns() -> None:
     assert filter.apply(Document(garbage_doc_1)).is_rejected
     assert filter.apply(Document(garbage_doc_2)).is_rejected
     assert filter.apply(Document(garbage_doc_3)).is_rejected
-
