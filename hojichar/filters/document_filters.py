@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import re
+import string
 import time
 import unicodedata
 from collections import Counter
@@ -15,6 +16,7 @@ from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document, Token
 
 try:
+    import emoji
     from fugashi import Tagger  # type: ignore
 
     is_loaded_extras = True
@@ -880,3 +882,57 @@ class WordRepetitionRatioFilter(Filter):
         )
 
         return word_repetition_ratio
+
+
+class DiscardTooManySpecialToken(Filter):
+    """
+    [!CAUTION] This filter requires `emoji` package. Please install it
+    by `pip install 'hojichar[all]'`.
+
+    句読点を含む記号、空白、絵文字、その他特殊な文字を一定の割合以上含むような文書を取り除くためのフィルタ
+    元実装: BigScience https://github.com/bigscience-workshop/data-preparation/blob/9d0588419073cc5bf0fb92b58f37f2a1016572c3/preprocessing/training/01b_oscar_cleaning_and_filtering/parameters_filtering.py#L5-L16  # noqa: E501
+    """
+
+    def __init__(self, threshold: float = 0.4, *args: Any, **kwargs: Any) -> None:
+        """
+
+        Args:
+            threshold: document whose special token ratio is higher than this value will be discarded
+            *args:
+            **kwargs:
+        """  # noqa: E501
+        super().__init__(*args, **kwargs)
+
+        # digits are not regarded as special tokens
+        # otherwise many false positives are made, i.e., good documents discarded
+        main_special_characters = string.punctuation + string.whitespace  # + string.digits
+        other_special_characters = (
+            "    　    ￼’“”–▬…✦�­£​•€«»°·═"
+            "×士＾˘⇓（）§″′´¿−±∈﻿¢ø‚„½¼¾¹²³―⁃，ˌ¸‹›ʺˈʻ¦‐⠀‰‑≤≥‖"
+            "◆●■►▼▲▴∆▻¡★☆✱ːº。¯˜¥ɪ≈†：⁄♡✓⊕․．⋅÷１‟；،、¨ाাी्े◦˚"
+            "゜ʼ≖ʼ¤℃√！？【】‿∞➤～πه۩☛₨➩☻๑٪♥ıॽ《‘©﴿٬？▷Г♫∟™ª₪®「—❖"
+            "」﴾》�"
+        )
+        # there is no `ja` emojis :cry:
+        en_emoji = list(emoji.UNICODE_EMOJI["en"].keys())  # type: ignore
+        special_characters_default = set(main_special_characters + other_special_characters)
+        special_characters_default.update(en_emoji)
+        self.special_characters = special_characters_default
+
+        self.threshold = threshold
+
+    def _compute_special_characters_ratio(self, text: str) -> float:
+        if len(text) == 0:
+            return 0
+
+        special_characters_ratio = len(
+            [char for char in text if char in self.special_characters]
+        ) / len(text)
+        return special_characters_ratio
+
+    def apply(self, doc: Document) -> Document:
+        special_characters_ratio = self._compute_special_characters_ratio(doc.text)
+
+        if special_characters_ratio > self.threshold:
+            doc.is_rejected = True
+        return doc

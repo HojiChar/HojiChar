@@ -14,15 +14,16 @@ hojichar = "hojichar.cli:main"
 [tool.poetry.dependencies]
 python = "^3.8"
 numpy = [
-  {version = ">=1.26", python = ">=3.9"},
-  {version = "<1.25", python = "=3.8"}
+  { version = ">=1.26", python = ">=3.9" },
+  { version = "<1.25", python = "=3.8" },
 ]
 mmh3 = "^4.0"
 tqdm = "^4.65.0"
-fugashi = {extras = ["unidic-lite"], version = "^1.3.2", optional = true}
+fugashi = { extras = ["unidic-lite"], version = "^1.3.2", optional = true }
+emoji = { version = "^2.13.2", extras = ["all"] }
 
 [tool.poetry.extras]
-all = ["fugashi"]
+all = ["fugashi", "emoji"]
 
 [tool.poetry.group.dev]
 optional = true

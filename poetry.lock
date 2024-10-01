@@ -163,6 +163,23 @@ tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.1
 toml = ["tomli"]
 
 [[package]]
+name = "emoji"
+version = "2.13.2"
+description = "Emoji for Python"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "emoji-2.13.2-py3-none-any.whl", hash = "sha256:ef6f2ee63b245e934c763b1a9a0637713955aa3d9e322432e036bb60559de4d6"},
+    {file = "emoji-2.13.2.tar.gz", hash = "sha256:f95d10d96c5f21299ed2c4b32511611ba890b8c07f5f2bf5b04d5d3eee91fd19"},
+]
+
+[package.dependencies]
+typing-extensions = {version = ">=4.7.0", markers = "python_version < \"3.9\""}
+
+[package.extras]
+dev = ["coverage", "pytest (>=7.4.4)"]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 description = "Backport of PEP 654 (exception groups)"
@@ -904,9 +921,9 @@ files = [
 test = ["pytest (>=6.0.0)", "setuptools (>=65)"]
 
 [extras]
-all = ["fugashi"]
+all = ["emoji", "fugashi"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "3429c64f75d687558b79a6ba56f16e6f2b042b4e4cc3061d45556c4cf0729814"
+content-hash = "09e3b3abdf637ee7335eaf18a7e60f215471b9f9565ed0e47a4fe104453e7b2f"
