@@ -1143,4 +1143,4 @@ all = ["emoji", "fasttext", "fugashi", "requests"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "212686a2a75a5cd35c78a609d6ec7a0bd0c052f282e233ffaf3d7d79dcbf1f89"
+content-hash = "5dcfd5a17303517aed4826552452f59eaa0ef0b9aaf700b5591da775926fb448"
