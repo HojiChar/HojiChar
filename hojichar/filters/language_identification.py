@@ -11,8 +11,10 @@ import requests
 try:
     from fasttext import load_model  # type: ignore
 except ImportError:
-    raise ImportError("This filter requires `fasttext` package. \
-Please install it by `pip install 'hojichar[all]'`.")
+    raise ImportError(
+        "This filter requires `fasttext` package. \
+Please install it by `pip install 'hojichar[all]'`."
+    )
 from tqdm import tqdm
 
 from hojichar import Document, Filter
