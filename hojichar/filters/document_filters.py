@@ -808,3 +808,75 @@ class CharRepetitionRatioFilter(Filter):
             freq_character_ngrams
         )
         return character_repetition_ratio
+
+
+class WordRepetitionRatioFilter(Filter):
+    """
+    [!CAUTION] This filter requires `fugashi` package. Please install it
+    by `pip install 'hojichar[all]'`.
+
+    単語Ngramの重なり率（文書中で重複する単語Ngramが占める割合）を計算して、重なりの大きいものを弾くためのフィルタ.
+    BigScienceで採用されていた前処理を参考にしている.
+
+    名詞が連打されているような広告テキストを取り除くのに有効な様子
+    まともな文書がたまたま2回繰り返されている場合もあり、これを取り除いて良いのかは分からない
+    例：
+    "ウェブ\n本文: ニコンの上昇率16%超える、今3月期は経常76%の大幅増益見込む(ニコン) 2013年05月10日[minkabu PRESS] - みんなの株式 (みんかぶ)\n2013/05/10(10:57)
+    ニコン<7731.T>が急騰、寄り付き直後に前日比355円高の2537円まで買い上げ
+    られ、上昇率は16%を超えた。外国為替市場で円が1ドル100円台、1ユーロ131円台に入るなど急速に円安が進み、輸出株が軒並み高になる
+    なか、9日取引終了後に発表した前年3月期決算で、今3月期は2ケタ近い増収で大幅増益を見込んだことが買い気を強めさせた。連結売上
+    高は前期比9.8%増の1兆1100億円、経常利益75.8%増の850億円を予想。前期は半導体、電子部品の低迷が足かせになり、2ケタ増収ながら
+    経常46%の大幅減益になったが、レンズ交換式デジタルカメラの拡大や液晶ディスプレイの回復で収益が急回復する。ニコンの株価は10時
+    56分現在2491円(△309円)出所:株経通信(株式会社みんかぶ)\n2013/05/10 - ニコン(7731) の関連ニュース。 ニコン<7731.T>が急騰、寄
+    り付き直後に前日比355円高の2537円まで買い上げられ、上昇率は16%を超えた。外国為替市場で円が1ドル100円台、1ユーロ131円台に入
+    るなど急速に円安が進み、輸出株が軒並み高になるなか、9日取引終了後に発表した前年3月期決算で、今3月期は2ケタ近い増収で大幅増
+    益を見込んだことが買い気を強めさせた。連結売上高は前期比9.8%増の1兆1100億円、経常利益75.8%増の850億円を予想。前期は半導体、
+    電子部品の低迷が足かせになり、2ケタ増収ながら経常46%の大幅減益になったが、レンズ交換式デジタルカメラの拡大や液晶ディスプレ
+    イの回復で収益が急回"
+    """  # noqa: E501
+
+    def __init__(
+        self, threshold: float = 0.40, ngram_size: int = 7, *args: Any, **kwargs: Any
+    ) -> None:
+        """
+
+        Args:
+            threshold: document whose character repetition ratio is higher than this value will be discarded
+            ngram_size: character ngram size. Larger value will decrease the false positive of long documents
+            *args:
+            **kwargs:
+        """  # noqa: E501
+        super().__init__(*args, **kwargs)
+        assert (
+            is_loaded_extras
+        ), "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+
+        self.threshold = threshold
+        self.ngram_size = ngram_size
+        self.tagger = Tagger("-Owakati")
+
+    def apply(self, doc: Document) -> Document:
+        ratio = self.compute_word_repetition_ratio(doc.text, self.ngram_size)
+        if ratio >= self.threshold:
+            doc.is_rejected = True
+        return doc
+
+    def compute_word_repetition_ratio(self, document: str, word_repetition_length: int) -> float:
+        def get_freq_word_ngrams(document: str, n: int) -> Dict[str, int]:
+            # tokenizing given document
+            words = [w.surface for w in self.tagger(document)]
+            word_ngrams = [" ".join(words[i : i + n]) for i in range(len(words) - n + 1)]
+            freq_word_ngrams: Dict[str, int] = {}
+            for word_ngram in word_ngrams:
+                freq_word_ngrams[word_ngram] = freq_word_ngrams.get(word_ngram, 0) + 1
+            return freq_word_ngrams
+
+        freq_word_ngrams_dict = get_freq_word_ngrams(document, word_repetition_length)
+        if len(freq_word_ngrams_dict) == 0:
+            return 0
+        freq_word_ngrams = list(freq_word_ngrams_dict.values())
+        word_repetition_ratio = sum(freq for freq in freq_word_ngrams if freq > 1) / sum(
+            freq_word_ngrams
+        )
+
+        return word_repetition_ratio
