@@ -5,7 +5,13 @@ import copy
 from os import PathLike
 from typing import Any, Callable, List, Union
 
-import mmh3
+try:
+    import mmh3
+except ImportError:
+    raise ImportError(
+        "This filter requires `mmh3` package. \
+Please install it by `pip install 'hojichar[all]'`."
+    )
 
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document

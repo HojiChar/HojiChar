@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any, Tuple, Union
 
 import requests
-from fasttext import load_model  # type: ignore
+
+try:
+    from fasttext import load_model  # type: ignore
+except ImportError:
+    raise ImportError("This filter requires `fasttext` package. \
+Please install it by `pip install 'hojichar[all]'`.")
 from tqdm import tqdm
 
 from hojichar import Document, Filter
