@@ -145,7 +145,7 @@ class LanguageIdentificationByFastText(Filter):
 class AcceptJapaneseByFastText(LanguageIdentificationByFastText):
     """
     A filter that removes non-Japanese text via Language Identification (LID) by FastText.
-            
+
     >>> AcceptJapaneseByFastText().apply(Document("This is English document")).is_rejected
     True
     >>> AcceptJapaneseByFastText().apply(Document("自然言語処理大好き！")).is_rejected
