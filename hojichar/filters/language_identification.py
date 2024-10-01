@@ -136,14 +136,6 @@ class LanguageIdentificationByFastText(Filter):
         return pred_lang, pred_score
 
     def apply(self, doc: Document) -> Document:
-        """
-        >>> AcceptJapaneseByFastText().apply(Document("This is English document")).is_rejected
-        True
-        >>> AcceptJapaneseByFastText().apply(Document("自然言語処理大好き！")).is_rejected
-        False
-        >>> AcceptJapaneseByFastText().apply(Document("快三手机投注平台代理")).is_rejected
-        True
-        """
         pred_lang, score = self._predict_language(doc.text)
         if not (pred_lang == self.language and score >= self.lang_score_threshold):
             doc.is_rejected = True
@@ -153,6 +145,13 @@ class LanguageIdentificationByFastText(Filter):
 class AcceptJapaneseByFastText(LanguageIdentificationByFastText):
     """
     A filter that removes non-Japanese text via Language Identification (LID) by FastText.
+            
+    >>> AcceptJapaneseByFastText().apply(Document("This is English document")).is_rejected
+    True
+    >>> AcceptJapaneseByFastText().apply(Document("自然言語処理大好き！")).is_rejected
+    False
+    >>> AcceptJapaneseByFastText().apply(Document("快三手机投注平台代理")).is_rejected
+    True
     """
 
     def __init__(
