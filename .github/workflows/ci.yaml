@@ -25,7 +25,11 @@ jobs:
         run: poetry install --with test --all-extras
       - name: Test with pytest and doctest
         run: |
-          poetry run pytest --cov -v --doctest-modules .
+          if [ ${{ matrix.python-version }} == '3.12' ] && [ ${{ matrix.os }} == 'ubuntu-latest' ]; then
+            poetry run pytest --cov -v --doctest-modules -m "download_test"
+          else
+            poetry run pytest --cov -v --doctest-modules -m "not download_test"
+          fi
       - name: Upload coverge reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v3
 
