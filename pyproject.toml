@@ -42,6 +42,7 @@ flake8 = "^4.0.1"
 isort = "^5.10.1"
 mypy = "^1.0"
 types-tqdm = "^4.65.0.2"
+types-requests = "^2.32.0.20240914"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.1.2"
