@@ -6,7 +6,9 @@ import time
 import unicodedata
 from collections import Counter
 from os import PathLike
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
 
 import hojichar
 from hojichar.core.filter_interface import Filter
@@ -735,3 +737,74 @@ class DiscardTooManyNouns(Filter):
         if noun_ratio >= self.threshold:
             doc.is_rejected = True
         return doc
+
+
+class CharRepetitionRatioFilter(Filter):
+    """
+    文字Ngramの重なり率（文書中で高頻度文字Ngramが占める割合）を計算して, 重なりの大きいものを除去します.
+    名詞の連続からなるような広告テキストを取り除くのに有効です.
+
+    実装は, BigScience で採用されていた前処理を参考にしています.
+    元実装: https://github.com/bigscience-workshop/data-preparation/blob/9d0588419073cc5bf0fb92b58f37f2a1016572c3/preprocessing/training/01b_oscar_cleaning_and_filtering/filtering.py#L425-L453  # noqa: E501
+
+    「高頻度文字Ngram」は、sqrt(ユニークなNgramの総数)によって求めていますが,
+    これは文書長の影響を軽減するためだとされています.
+
+    掲示板のテキストが引っかかりやすい傾向があります.
+    13: 名無しさん@実況で競馬板アウト 2019/08/18(日) 15:28:46.10 ID:eBvZg8h+0
+    的なものが高頻度で登場するため、文字Ngramの重なり率も高くなってしまう
+    """
+
+    def __init__(
+        self, threshold: float = 0.33, ngram_size: int = 5, *args: Any, **kwargs: Any
+    ) -> None:
+        """
+
+        Args:
+            threshold: document with character repetition ratio higher than this value will be discarded
+            ngram_size: character ngram size. Larger value will decrease the false positive of long documents
+            *args:
+            **kwargs:
+        """  # noqa: E501
+
+        super().__init__(*args, **kwargs)
+        self.threshold = threshold
+        self.ngram_size = ngram_size
+
+    def apply(self, doc: Document) -> Document:
+        ratio = self.compute_character_repetition_ratio(doc.text, self.ngram_size)
+        if ratio >= self.threshold:
+            doc.is_rejected = True
+        return doc
+
+    @staticmethod
+    def compute_character_repetition_ratio(
+        document: str, character_repetition_length: int
+    ) -> float:
+        def get_freq_character_ngrams(document: str, n: int) -> Dict[str, int]:
+            character_ngrams: List[str] = [
+                document[i : i + n] for i in range(len(document) - n + 1)
+            ]
+            freq_character_ngrams_dict: Dict[str, int] = {}
+            for character_ngram in character_ngrams:
+                freq_character_ngrams_dict[character_ngram] = (
+                    freq_character_ngrams_dict.get(character_ngram, 0) + 1
+                )
+            return freq_character_ngrams_dict
+
+        freq_character_ngrams_dict = get_freq_character_ngrams(
+            document, character_repetition_length
+        )
+        if len(freq_character_ngrams_dict) == 0:
+            return 0.0
+        freq_character_ngrams: List[int] = list(freq_character_ngrams_dict.values())
+        freq_character_ngrams = sorted(freq_character_ngrams, reverse=True)
+        val_one = len([el for el in freq_character_ngrams if el == 1])
+        num_rep_character_ngrams = min(
+            int(np.sqrt(len(freq_character_ngrams))),
+            len(freq_character_ngrams) - val_one,
+        )
+        character_repetition_ratio = sum(freq_character_ngrams[:num_rep_character_ngrams]) / sum(
+            freq_character_ngrams
+        )
+        return character_repetition_ratio
