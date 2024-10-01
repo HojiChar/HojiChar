@@ -82,7 +82,7 @@ class LanguageIdentificationByFastText(Filter):
         self,
         language: str,
         lang_score_threshold: float = 0.50,
-        model_path:  Union[str, PathLike[str], None] = None,
+        model_path: Union[str, PathLike[str], None] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -149,7 +149,7 @@ class AcceptJapaneseByFastText(LanguageIdentificationByFastText):
     def __init__(
         self,
         lang_score_threshold: float = 0.50,
-        model_path:  Union[str, PathLike[str], None] = None,
+        model_path: Union[str, PathLike[str], None] = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
