@@ -27,7 +27,7 @@ jobs:
         run: |
           if [ '${{ matrix.python-version }}' == '3.12' ] && [ '${{ matrix.os }}' == 'ubuntu-latest' ]; then
             poetry run pytest --cov -v --doctest-modules -m "download_test"
-          elif [ '${{ matrix.python-version }}' == '3.9' ] && '${{ matrix.os }}' == 'macos-latest'; then
+          elif [ '${{ matrix.python-version }}' == '3.9' ] && [ '${{ matrix.os }}' == 'macos-latest' ]; then
             echo "Skip test on macOS with Python 3.9"
           else
             poetry run pytest --cov -v --doctest-modules -m "not download_test"
