@@ -7,11 +7,10 @@ from typing import Any, Callable, List, Union
 
 try:
     import mmh3
+
+    is_loaded_extras = True
 except ImportError:
-    raise ImportError(
-        "This filter requires `mmh3` package. \
-Please install it by `pip install 'hojichar[all]'`."
-    )
+    is_loaded_extras = False
 
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document
@@ -37,6 +36,12 @@ class GenerateDedupLSH(Filter):
     ) -> None:
         super().__init__(*args, **kwargs)
         assert n_minhash == n_buckets * bucket_size
+        if is_loaded_extras is False:
+            raise ImportError(
+                "This filter requires `mmh3` package. \
+Please install it by `pip install 'hojichar[all]'` or `pip install mmh3`."
+            )
+
         self.N_MINHASH = n_minhash
         self.N_GRAM = n_gram
         self.N_BUCKETS = n_buckets

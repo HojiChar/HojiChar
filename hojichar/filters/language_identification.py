@@ -10,11 +10,11 @@ import requests
 
 try:
     from fasttext import load_model  # type: ignore
+
+    is_loaded_extras = True
 except ImportError:
-    raise ImportError(
-        "This filter requires `fasttext` package. \
-Please install it by `pip install 'hojichar[all]'`."
-    )
+    is_loaded_extras = False
+
 from tqdm import tqdm
 
 from hojichar import Document, Filter
@@ -109,6 +109,11 @@ class LanguageIdentificationByFastText(Filter):
             **kwargs:
         """
         super().__init__(*args, **kwargs)
+        if not is_loaded_extras:
+            raise ImportError(
+                "The `fasttext` package is required to use this filter. "
+                "Please install it by running `pip install hojichar[all]` or `pip install fasttext`."
+            )
 
         self.lang_score_threshold = lang_score_threshold
         self.language = language
