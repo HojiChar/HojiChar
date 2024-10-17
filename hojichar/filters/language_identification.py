@@ -112,7 +112,8 @@ class LanguageIdentificationByFastText(Filter):
         if not is_loaded_extras:
             raise ImportError(
                 "The `fasttext` package is required to use this filter. "
-                "Please install it by running `pip install hojichar[all]` or `pip install fasttext`."
+                "Please install it by running `pip install hojichar[all]`"
+                "or `pip install fasttext`."
             )
 
         self.lang_score_threshold = lang_score_threshold
