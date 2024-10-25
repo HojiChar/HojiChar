@@ -6,9 +6,8 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, Tuple, Union
 
-import requests
-
 try:
+    import requests
     from fasttext import load_model  # type: ignore
 
     is_loaded_extras = True
@@ -113,7 +112,7 @@ class LanguageIdentificationByFastText(Filter):
             raise ImportError(
                 "The `fasttext` package is required to use this filter. "
                 "Please install it by running `pip install hojichar[all]`"
-                "or `pip install fasttext`."
+                "or `pip install fasttext requests`."
             )
 
         self.lang_score_threshold = lang_score_threshold
