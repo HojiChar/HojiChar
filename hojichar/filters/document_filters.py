@@ -736,7 +736,10 @@ class DiscardTooManyNouns(Filter):
         pos_count = Counter(
             w.feature.pos1 for w in self.tagger(doc.text) if w.feature.pos1 != "補助記号"
         )
-        noun_ratio = pos_count["名詞"] / sum(pos_count.values())
+        try:
+            noun_ratio = pos_count["名詞"] / sum(pos_count.values())
+        except ZeroDivisionError:
+            noun_ratio = 0.0
         if noun_ratio >= self.threshold:
             doc.is_rejected = True
         return doc
@@ -930,6 +933,7 @@ class DiscardTooManySpecialToken(Filter):
         special_characters_ratio = len(
             [char for char in text if char in self.special_characters]
         ) / len(text)
+        special_characters_ratio = 0.0
         return special_characters_ratio
 
     def apply(self, doc: Document) -> Document:
