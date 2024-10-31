@@ -933,7 +933,6 @@ class DiscardTooManySpecialToken(Filter):
         special_characters_ratio = len(
             [char for char in text if char in self.special_characters]
         ) / len(text)
-        special_characters_ratio = 0.0
         return special_characters_ratio
 
     def apply(self, doc: Document) -> Document:
