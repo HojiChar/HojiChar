@@ -200,6 +200,7 @@ class JSONDumper(Filter):
         dump_reason: bool = False,
         p: float = 1,
         skip_rejected: bool = False,
+        export_extras: bool = False,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -211,6 +212,7 @@ class JSONDumper(Filter):
         """
         super().__init__(p, skip_rejected, *args, **kwargs)
         self.dump_reason = dump_reason
+        self.export_extras = export_extras
 
     def apply(self, document: Document) -> Document:
         """
@@ -219,16 +221,36 @@ class JSONDumper(Filter):
         """
         text = document.text
         if self.dump_reason:
-            document.text = json.dumps(
-                {
-                    "text": text,
-                    "is_rejected": document.is_rejected,
-                    "reason": document.reject_reason,
-                },
-                ensure_ascii=False,
-            )
+            if self.export_extras:
+                document.text = json.dumps(
+                    {
+                        "text": text,
+                        "is_rejected": document.is_rejected,
+                        "reason": document.reject_reason,
+                        "extras": document.extras,
+                    },
+                    ensure_ascii=False,
+                )
+            else:
+                document.text = json.dumps(
+                    {
+                        "text": text,
+                        "is_rejected": document.is_rejected,
+                        "reason": document.reject_reason,
+                    },
+                    ensure_ascii=False,
+                )
         else:
-            document.text = json.dumps({"text": text}, ensure_ascii=False)
+            if self.export_extras:
+                document.text = json.dumps(
+                    {
+                        "text": text,
+                        "extras": document.extras,
+                    },
+                    ensure_ascii=False,
+                )
+            else:
+                document.text = json.dumps({"text": text}, ensure_ascii=False)
         return document
 
 
