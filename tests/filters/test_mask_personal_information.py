@@ -56,7 +56,10 @@ class TestMaskPhoneNumber:
             self.filt("Call 075-123-4567 if something is wrong")
             == "Call 075-123-XXXX if something is wrong"
         )
-        assert self.filt("なにかあったら08012345678まで電話してください.") == "なにかあったら0801234XXXXまで電話してください."
+        assert (
+            self.filt("なにかあったら08012345678まで電話してください.")
+            == "なにかあったら0801234XXXXまで電話してください."
+        )
 
 
 class TestMaskEmailAddress:
@@ -69,4 +72,7 @@ class TestMaskEmailAddress:
         assert self.filt("*-+|#$.@!!.com") == "xxxx@yyy.com"
 
     def test_embedded_in_text(self):
-        assert self.filt("何かあれば hogehoge@example.ne.jp まで連絡") == "何かあれば xxxx@yyy.jp まで連絡"
+        assert (
+            self.filt("何かあれば hogehoge@example.ne.jp まで連絡")
+            == "何かあれば xxxx@yyy.jp まで連絡"
+        )

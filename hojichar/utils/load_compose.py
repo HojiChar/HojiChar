@@ -51,7 +51,7 @@ def load_filter_from_file(profile_path: Union[str, PathLike]) -> hojichar.Compos
 
 
 def load_factory_from_file(
-    profile_path: Union[str, PathLike]
+    profile_path: Union[str, PathLike],
 ) -> Callable[[Optional[Any]], hojichar.Compose]:
     """
     Loading a function by a profile which has `FACTORY` variable.

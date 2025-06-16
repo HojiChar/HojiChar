@@ -51,4 +51,6 @@ class Document:
         return self.text
 
     def __repr__(self) -> str:
-        return f"Document(text={self.text!r}, is_rejected={self.is_rejected}, extras={self.extras})"  # noqa
+        return (
+            f"Document(text={self.text!r}, is_rejected={self.is_rejected}, extras={self.extras})"  # noqa
+        )

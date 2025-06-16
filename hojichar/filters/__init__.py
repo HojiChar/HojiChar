@@ -5,7 +5,7 @@ Filters for text preprocess.
 Each filter module can directly import from `hojichar`. i.e., you can inport as `from hojichar import document_filters`.
 
 How we classify each filter is below:
-- `hojichar.filters.document_filters`-- General text cleaners. 
+- `hojichar.filters.document_filters`-- General text cleaners.
 - `hojichar.filters.deduplication`-- Approximate deduplicate processor, inspired by NEARDUP from https://arxiv.org/abs/2107.06499
 - `hojichar.filters.language_identification`-- Language identification filters. For example, to remove non-Japanese text.
 - `hojichar.filters.token_filters`-- A per-token filter. For example, to process a specific part of speech.
