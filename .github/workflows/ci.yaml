@@ -59,6 +59,6 @@ jobs:
         with:
           python-version: ${{ env.python-version }}
       - name: Install dependencies
-        run: uv sync --no-default-groups --group lint
+        run: uv sync --all-extras
       - name: Mypy type checking
         run: uv run mypy --explicit-package-bases hojichar
