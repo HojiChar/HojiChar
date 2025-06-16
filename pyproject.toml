@@ -49,7 +49,6 @@ default-groups = [
     "dev",
     "lint",
     "test",
-    "doc",
 ]
 
 [tool.ruff]

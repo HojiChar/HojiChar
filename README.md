@@ -353,7 +353,7 @@ To install the package, execute the following commands:
 ```
 git clone https://github.com/HojiChar/HojiChar.git
 cd HojiChar
-uv sync
+uv sync --all-extras
 ```
 
 ### Testing
