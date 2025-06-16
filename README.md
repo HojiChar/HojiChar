@@ -353,13 +353,7 @@ To install the package, execute the following commands:
 ```
 git clone https://github.com/HojiChar/HojiChar.git
 cd HojiChar
-poetry install
-```
-
-To install packages related to development, use:
-
-```
-poetry install --extras "dev lint test doc"
+uv sync
 ```
 
 ### Testing
@@ -375,18 +369,18 @@ This command should be executed from the root of the project.
 ### Code style
 
 - HojiChar requires type hints for all code. Type checking is performed in continuous integration (CI) in addition to the pytest tests.
-- HojiChar code is subject to inspection by the Flake8 Linter and is formatted using Black and isort. For configuration details, please refer to `pyproject.toml`. You can perform linting and formatting from the root of the project using the following commands:
+- HojiChar code is subject to inspection and formatting by the `ruff` Linter. For configuration details, please refer to `pyproject.toml`. You can perform linting and formatting from the root of the project using the following commands:
 
 Linting
 
-```
-poetry run task lint
+```bash
+uvx ruff check .
 ```
 
 Formatting
 
-```
-poetry run task format
+```bash
+uvx ruff format .
 ```
 
 ### Building the Documentation
@@ -405,36 +399,27 @@ In practice, the process of building the documentation is automated by CI. When 
 
 To create a source tarball, for instance, for packaging or distribution, run the following command:
 
-```
-poetry build
+```bash
+uv build
 ```
 
 The tarball will be created in the dist directory. This command will compile the source code, and the resulting tarball can be installed with no additional dependencies other than the Python standard library.
 
 ### Creating a Release and Uploading it to PyPI
 
-This command is primarily used by the project manager to create a release and upload it to PyPI.
-
-Versions uploaded to PyPI are identified by git tags. The `__version__` variable in `__init__.py` or the `version` entry in `pyproject.toml` are ignored. The `poetry-dynamic-versioning` Poetry plugin is used to implement this process.
-
-To add the plugin, use:
-
-```
-poetry self add "poetry-dynamic-versioning[plugin]"
-```
+Versions uploaded to PyPI are identified by git tags. The `__version__` variable in `__init__.py` or the `version` entry in `pyproject.toml` are ignored. The `uv-dynamic-versioning` plugin is used to implement this process.
 
 The steps to push to PyPI are as follows, although in actuality, the process is automated by CI when a GitHub release is created from the tag.
 
-```
+```bash
 git checkout v0.1.2
-poetry config pypi-token.pypi <API TOKEN>
-poetry build 
-poetry publish
+uv build
+uv publish --index testpypi --token ${PYPI_TOKEN}
 ```
 
 The actual task for the manager is to apply the appropriate tag to the commit to be released and to create the release from GitHub:
 
-```
+```bash
 git tag -a v0.1.2 -m "Version 0.1.2"
 git push origin v0.1.2
 ```

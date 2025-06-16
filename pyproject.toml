@@ -33,12 +33,10 @@ dev = [
     "types-requests>=2.32.0.20240914,<3",
 ]
 lint = [
-    "black>=22.3.0,<23",
-    "flake8>=4.0.1,<5",
-    "isort>=5.10.1,<6",
     "mypy~=1.0",
     "types-tqdm>=4.65.0.2,<5",
     "types-requests>=2.32.0.20240914,<3",
+    "ruff>=0.11.13",
 ]
 test = [
     "pytest>=7.1.2,<8",
@@ -53,6 +51,20 @@ default-groups = [
     "test",
     "doc",
 ]
+
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.lint]
+extend-select = [
+  "I",   # isort
+  "N",   # pep8-naming
+  "Q",   # flake8-quotes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N806"]
+"*/__init__.py" = ["F401"]
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
@@ -80,8 +92,8 @@ warn_unused_ignores = true
 show_error_codes = true
 
 [tool.taskipy.tasks]
-lint = "flake8 --show-source hojichar/ tests/ && isort --check-only --diff hojichar/ tests/"
-format = "black hojichar/ tests/ && isort hojichar/ tests"
+lint = "ruff check ."
+format = "ruff format ."
 test = "pytest . --doctest-modules && mypy ."
 
 [tool.pytest.ini_options]
