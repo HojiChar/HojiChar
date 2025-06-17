@@ -1,6 +1,6 @@
 [project]
 name = "hojichar"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Text preprocessing management system."
 authors = [{ name = "kenta.shinzato", email = "hoppiece@gmail.com" }]
 requires-python = "~=3.9"
