@@ -75,7 +75,7 @@ class Compose(Filter):
             else:
                 self.filters.append(filter)
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text)
         document = self.apply(document)
         if document.is_rejected:
@@ -102,7 +102,7 @@ class Compose(Filter):
             document = self._apply_filter(filt=filt, document=document)
             document = inspector.apply(document)
             if (not previous_inspector.is_rejected) and inspector.is_rejected:
-                document.reject_reason = filt.get_jsonalbe_vars(exclude_keys={"skip_rejected"})
+                document.reject_reason = filt.get_jsonable_vars(exclude_keys={"skip_rejected"})
             previous_inspector = inspector
 
         self._statistics.update_changes(document, self.before_process_inspector, self.inspectors)

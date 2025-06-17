@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Optional
 
+from hojichar.utils.warn_deprecation import deprecated_since
 
+
+@deprecated_since("0.1.0", "Document")
 class Token:
     def __init__(self, text: str, is_rejected: bool = False) -> None:
         self.text = text
@@ -41,9 +44,11 @@ class Document:
     def original(self) -> str:
         return self.__original
 
+    @deprecated_since("1.0.0")
     def set_tokens(self, tokens: List[str]) -> None:
         self.tokens = [Token(token) for token in tokens]
 
+    @deprecated_since("1.0.0")
     def get_tokens(self) -> List[str]:
         return [token.text for token in self.tokens]
 
