@@ -72,8 +72,6 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
-[tool.uv-dynamic-versioning]
-fallback-version = "0.0.0" 
 [tool.black]
 line-length = 99
 
