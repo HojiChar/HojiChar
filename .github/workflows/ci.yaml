@@ -1,7 +1,15 @@
 name: CI wowkflow
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main    
+  pull_request:
+    types: [opened, reopened, synchronize]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   pytest:
     runs-on: ${{ matrix.os }}
@@ -10,69 +18,55 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Poetry
-        run: pipx install poetry
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "poetry"
       - name: Install dependencies
-        run: poetry install --with test --all-extras
+        run: uv sync --all-extras
       - name: Test with pytest and doctest
         run: |
           if [ '${{ matrix.python-version }}' == '3.12' ] && [ '${{ matrix.os }}' == 'ubuntu-latest' ]; then
-            poetry run pytest --cov -v --doctest-modules -m "download_test"
+            uv run pytest --cov -v --doctest-modules -m "download_test"
           elif [ '${{ matrix.python-version }}' == '3.9' ] && [ '${{ matrix.os }}' == 'macos-latest' ]; then
             echo "Skip test on macOS with Python 3.9"
           else
-            poetry run pytest --cov -v --doctest-modules -m "not download_test"
+            uv run pytest --cov -v --doctest-modules -m "not download_test"
           fi
       - name: Upload coverge reports to Codecov via GitHub Actions
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
 
   lint_check:
     runs-on: ubuntu-latest
     env:
-      python-version: "3.10"
+      python-version: "3.11"
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Poetry
-        run: pipx install poetry
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ env.python-version }}
-          cache: "poetry"
-      - name: Install dependencies
-        run: poetry install --with lint
       - name: Check black and isort
         run: |
-          poetry run black --check --diff .
-          poetry run isort --check-only --diff .
-      - name: Check Flake8
-        run: poetry run flake8 --show-source --statistics .
+          uvx ruff check --diff .
 
   mypy_check:
     runs-on: ubuntu-latest
     env:
-      python-version: "3.10"
+      python-version: "3.11"
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Poetry
-        run: pipx install poetry
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ env.python-version }}
-          cache: "poetry"
       - name: Install dependencies
-        run: poetry install --with lint --all-extras
+        run: uv sync --all-extras
       - name: Mypy type checking
-        run: poetry run mypy --explicit-package-bases hojichar
+        run: uv run mypy --explicit-package-bases hojichar

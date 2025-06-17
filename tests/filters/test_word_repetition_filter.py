@@ -7,7 +7,10 @@ from hojichar.filters.document_filters import WordRepetitionRatioFilter
 @pytest.mark.parametrize(
     "input_str,is_rejected",
     [
-        ("派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人", True),
+        (
+            "派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人・派遣求人",
+            True,
+        ),
         (
             "合宿 免許 愛知などと検索した福津にお住いの方に合宿免許情報を紹介しています! | 全国合宿免許サイト情報\n合宿 免許 愛知などと検索した福津にお住いの方に合宿免許情報を紹介しています!",  # noqa: E501
             True,

@@ -732,15 +732,15 @@ class DiscardTooManyNouns(Filter):
             **kwargs:
         """
         super().__init__(*args, **kwargs)
-        assert (
-            is_loaded_extras
-        ), "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+        assert is_loaded_extras, (
+            "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+        )
 
         self.threshold = threshold
         self.tagger = Tagger("-Owakati")
-        assert (
-            "unidic" in self.tagger.dictionary_info[0]["filename"]
-        ), "MeCab dictionary must be unidic"
+        assert "unidic" in self.tagger.dictionary_info[0]["filename"], (
+            "MeCab dictionary must be unidic"
+        )
 
     def apply(self, doc: Document) -> Document:
         """
@@ -875,9 +875,9 @@ class WordRepetitionRatioFilter(Filter):
             **kwargs:
         """  # noqa: E501
         super().__init__(*args, **kwargs)
-        assert (
-            is_loaded_extras
-        ), "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+        assert is_loaded_extras, (
+            "fugashi is required for this filter. Try pip install 'hojichar[all]'"
+        )
 
         self.threshold = threshold
         self.ngram_size = ngram_size

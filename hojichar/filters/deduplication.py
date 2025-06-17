@@ -1,6 +1,7 @@
 """
 文書の(近似)重複処理のためのモジュール.
 """
+
 import copy
 from os import PathLike
 from typing import Any, Callable, List, Union

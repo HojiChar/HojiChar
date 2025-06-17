@@ -134,7 +134,6 @@ def test_cli_file_output(current_dir):
     test_output = current_dir / "fixtures/sample_out_100.jsonl"
 
     with tempfile.NamedTemporaryFile("w+") as tempf:
-
         hojichar_cmd = ["hojichar", "-p", test_profile, "-o", tempf.name, "-j", "1"]
         process = subprocess.run(hojichar_cmd, input=open(test_input).read(), text=True)
 
@@ -151,7 +150,6 @@ def test_cli_file_output_multi_jobs(current_dir, num_jobs):
     test_output = current_dir / "fixtures/sample_out_100.jsonl"
 
     with tempfile.NamedTemporaryFile("w+") as tempf:
-
         hojichar_cmd = ["hojichar", "-p", test_profile, "-o", tempf.name, "-j", str(num_jobs)]
         process = subprocess.run(hojichar_cmd, input=open(test_input).read(), text=True)
 
@@ -167,7 +165,6 @@ def test_cli_dump_stats(current_dir):
     test_output_err = current_dir / "fixtures/sample_out_100_stderr.txt"
 
     with tempfile.NamedTemporaryFile("w+") as tempf:
-
         hojichar_cmd = ["hojichar", "-p", test_profile, "--dump-stats", tempf.name]
         process = subprocess.run(hojichar_cmd, input=open(test_input).read(), text=True)
 

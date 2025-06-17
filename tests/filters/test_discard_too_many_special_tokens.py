@@ -8,7 +8,10 @@ from hojichar.filters.document_filters import DiscardTooManySpecialToken
     "input_str,is_rejected",
     [
         (r"\\\\\\\\\\\\\\\\\\\\\\\////////////////////////////", True),
-        ("この 章 に 規 定 する 手 続 を 遵 守 しないこと 以 外 の い か な る 理 由 によっても 国 際 登 録", True),
+        (
+            "この 章 に 規 定 する 手 続 を 遵 守 しないこと 以 外 の い か な る 理 由 によっても 国 際 登 録",
+            True,
+        ),
         ("おはよォ🤩👍👍👍👍", True),
         ("2011年1月28日、EUがビスフェノールAを哺乳瓶に使用することを禁止", False),
         ("企業ログxを使って、あなたにピッタリな会社の企業情報を見つけてください！", False),

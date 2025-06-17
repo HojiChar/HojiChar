@@ -1,6 +1,7 @@
 """
 .. include:: ../README.md
 """
+
 from .core.composition import Compose
 from .core.filter_interface import Filter, TokenFilter
 from .core.inspection import StatsContainer
@@ -14,7 +15,7 @@ from .filters import (
     tokenization,
 )
 
-__version__ = "0.0.0"  # Replaced by poetry-dynamic-versioning when deploying
+__version__ = "0.0.0"  # Replaced by uv-dynamic-versioning when deploying
 
 __all__ = [
     "core",
