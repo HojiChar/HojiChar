@@ -42,7 +42,7 @@ test = [
     "pytest>=7.1.2,<8",
     "pytest-cov>=4.0.0,<5",
 ]
-doc = ["pdoc>=12.3.1,<13"]
+docs = ["pdoc>=12.3.1,<13"]
 
 [tool.uv]
 default-groups = [
