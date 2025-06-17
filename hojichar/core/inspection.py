@@ -144,7 +144,7 @@ class StatisticsCounter:
         for inspector in inspectors:
             counts[inspector.target] = FilterStatistics(
                 name=inspector.target,
-                params=inspector.target_filter.get_jsonalbe_vars(),
+                params=inspector.target_filter.get_jsonable_vars(),
             )
         self.stats = StatsContainer(
             DocStatistics(),

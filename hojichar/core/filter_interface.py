@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Set
 
 from hojichar.core.models import Document, Token
@@ -18,7 +19,7 @@ def _is_jsonable(data: Any) -> bool:
     return False
 
 
-class Filter:
+class Filter(ABC):
     """
     Base class for all filters.
     Document-level filters must inherit from this class.
@@ -65,6 +66,7 @@ class Filter:
         self.p = p
         self.skip_rejected = skip_rejected
 
+    @abstractmethod
     def apply(self, document: Document) -> Document:
         """Definition of filter behavior.
 
@@ -83,8 +85,25 @@ class Filter:
         Document
             Processed Document
         """
-        raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
-        return document
+
+    def apply_batch(self, documents: list[Document]) -> list[Document]:
+        """
+        Apply the filter to a batch of documents.
+        You can override this method if you want to
+        apply the filter to a batch of documents at once.
+
+        Parameters
+        ----------
+        documents : list[Document]
+            List of input documents
+
+        Returns
+        -------
+        list[Document]
+            List of processed documents
+        """
+        return [self.apply(document) for document in documents]
+
 
     def apply_filter(self, document: Document) -> Document:
         document = self.apply(document)
@@ -95,7 +114,7 @@ class Filter:
         document = self.apply(document)
         return document.text
 
-    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
+    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
@@ -145,7 +164,7 @@ class TokenFilter:
         exclude_keys = ["logger"]
         return dict(filter(lambda item: item[0] not in exclude_keys, vars(self).items()))
 
-    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
+    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
