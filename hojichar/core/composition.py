@@ -75,7 +75,7 @@ class Compose(Filter):
             else:
                 self.filters.append(filter)
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text)
         document = self.apply(document)
         if document.is_rejected:

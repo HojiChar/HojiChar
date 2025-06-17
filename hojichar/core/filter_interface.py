@@ -1,8 +1,11 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Iterable, Optional, Set, TypeVar
+
+import numpy as np
 
 from hojichar.core.models import Document, Token
+from hojichar.utils.warn_deprecation import deprecated_since
 
 
 def _is_jsonable(data: Any) -> bool:
@@ -10,12 +13,6 @@ def _is_jsonable(data: Any) -> bool:
         return True
     elif isinstance(data, (bool, int, float, str)):
         return True
-    """
-    elif isinstance(data, (tuple, list)):
-        return all(Filter._is_jsonable(x) for x in data)
-    elif isinstance(data, dict):
-        return all(isinstance(k, str) and Filter._is_jsonable(v) for k, v in data.items())
-    """
     return False
 
 
@@ -24,67 +21,125 @@ class Filter(ABC):
     Base class for all filters.
     Document-level filters must inherit from this class.
 
-    The definition of filter function is in `apply` method.
-    If you define a new filter, you must define the method.
+    The definition of text processing is in `apply` method.
+    If you define a new filter, override the method.
+
     When this class is called, apply the filter from string to string.
 
-    If the filter create `Document.tokens` form `Document.text`, you
-    must implement `tokenize` method.
-    If the filter update `Document.text` by merging `Document.tokens`, you
-    must implement `merge` method.
-    Do not define a filter that changes both `Document.text` and `Document.token`
-    to prevent unexpected behavior.
+    With context manager, you can use the filter as follows:
+    ```python
+    with YourFilter(p=0.5) as filt:
+        text = filt("This is a sample text.")
+    ```
 
-    If you apply the filter to tokens, you can use `TokenFilter` class.
-
-    Parameters
-    ----------
-    p: float
-        The probability apply the filter organized by hojichar.Compose
-    skip_reject: bool
-        If set `True`, `hojichar.Compose` make this filter ignore the document
-        which has `is_rejected` flag.
-        This flag is `True` by default since processing discarded documents
-        in subsequent filters is meaningless. However, in some cases, docs that
-        have been rejected need another filter. For example, analyzing false-positive,
-        discarded docs must be passed to JSON Dump filters. In such case,
-        set the `skip_reject` flag as `False` and make it pass all docs.
     """
 
     def __init__(
-        self, p: float = 1, skip_rejected: bool = True, *args: Any, **kwargs: Any
+        self,
+        p: float = 1.0,
+        skip_rejected: bool = True,
+        *args: Any,
+        seed: Optional[int] = None,
+        rng: Optional[np.random.Generator] = None,
+        use_batch: bool = False,
+        batch_size: int = 128,
+        **kwargs: Any,
     ) -> None:
         """
+        Initialize the filter.
         Parameters
         ----------
-        p : float, optional
-            Probability that this filter will be applied. Default=1
+        p : float
+            The probability of applying the filter.
+            If `p` is 1, the filter will always be applied.
+        skip_rejected : bool
+            If `True`, the filter will skip documents that are already rejected.
+            If you want to apply the filter to all documents (e.g., postprocess), set this to `False`.
+        seed : Optional[int]
+            Seed for the random number generator.
+        rng : Optional[np.random.Generator]
+            A numpy random number generator instance.
+        use_batch : bool
+            If `True`, the filter will process documents in batches in the `apply_stream` method.
+        batch_size : int
+            The size of the batch to process documents in the `apply_stream` method.
+        kwargs : Any
+            Additional keyword arguments to pass to the filter.
         """
         self.name = self.__class__.__name__
-        self.logger = logging.getLogger("hojichar.document_filters." + self.name)
+        self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
         assert 0 <= p <= 1
         self.p = p
+        self.__init_rng(seed=seed, rng=rng)
         self.skip_rejected = skip_rejected
+        self._use_batch = use_batch
+        self._batch_size = batch_size
+
+    def __init_rng(
+        self, seed: Optional[int] = None, rng: Optional[np.random.Generator] = None
+    ) -> None:
+        if seed is not None and rng is not None:
+            raise ValueError("You cannot set both `seed` and `rng` at the same time.")
+
+        self._give_rng_at_init = True
+        if rng is not None:
+            self._rng = rng
+        elif seed is not None:
+            self._rng = np.random.default_rng(seed)
+        else:
+            self._rng = np.random.default_rng()
+            self._give_rng_at_init = False
 
     @abstractmethod
     def apply(self, document: Document) -> Document:
-        """Definition of filter behavior.
+        """
+        Definition of filter behavior.
 
-        In this method, the filter will modify `document.text`, or
-        set `document.is_rejected = True` to discard the document.
+        The document must have a protocol `TextContent`,
+        and mostly used hojichar.Document class.
 
-        Do not define a filter that changes both `document.text` and `document.token`
+        In this method, the filter will modify `document.text` or
+        `document.extras` and set `document.is_rejected = True` to discard the document.
 
         Parameters
         ----------
-        document : Document
+        document : T
             Input document
 
         Returns
         -------
-        Document
+        T
             Processed Document
         """
+
+    @deprecated_since(version="1.0.0", alternative="apply")
+    def apply_filter(self, document: Document) -> Document:
+        document = self.apply(document)
+        return document
+
+    def _check_skip(self, document: Document) -> bool:
+        """
+        Check if the document should be skipped by this filter.
+        If `skip_rejected` is set to `True`, this method will return `True`
+        if the document is already rejected.
+        If `p` is less than 1, this method will return `True` with a probability of `1 - p`.
+        """
+        skip = self.skip_rejected and document.is_rejected
+        if skip:
+            return True
+        if self.p < 1:
+            if self._rng.random() > self.p:
+                return True
+        return False
+
+    def _apply(self, document: Document) -> Document:
+        """
+        Apply the filter to a single document.
+        This method checks if the document should be skipped.
+        """
+        if self._check_skip(document):
+            return document
+        return self.apply(document)
 
     def apply_batch(self, documents: list[Document]) -> list[Document]:
         """
@@ -102,16 +157,46 @@ class Filter(ABC):
         list[Document]
             List of processed documents
         """
-        return [self.apply(document) for document in documents]
+        return [self._apply(document) for document in documents]
 
+    def apply_stream(self, document_stream: Iterable[Document]) -> Iterable[Document]:
+        """
+        Apply the filter to a stream of documents.
+        This method is used when you want to process documents one by one.
+        If `use_batch` is set to `True` in the constructor,
+        this method will process documents in batches.
 
-    def apply_filter(self, document: Document) -> Document:
-        document = self.apply(document)
-        return document
+        Parameters
+        ----------
+        document_stream : Iterable[Document]
+            Stream of input documents
 
-    def __call__(self, text: str) -> str:
-        document = Document(text)
-        document = self.apply(document)
+        Returns
+        -------
+        Iterable[Document]
+            Stream of processed documents
+        """
+
+        if not self._use_batch:
+            for document in document_stream:
+                yield self._apply(document)
+        else:
+            batch: list[Document] = []
+            for document in document_stream:
+                if self._check_skip(document):
+                    yield document
+                    continue
+
+                batch.append(document)
+                if len(batch) >= self._batch_size:
+                    yield from self.apply_batch(batch)
+                    batch.clear()
+            if batch:
+                yield from self.apply_batch(batch)
+
+    def __call__(self, text: str, **kwargs: Any) -> str:
+        document = Document(text, **kwargs)
+        document = self._apply(document)
         return document.text
 
     def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
@@ -128,7 +213,25 @@ class Filter(ABC):
             if (_is_jsonable(v) and (k not in exclude_keys) and (not k.startswith("_")))
         }
 
+    def shutdown(self) -> None:
+        """
+        This method is called when the filter is no longer needed.
+        You can override this method to release resources or perform cleanup tasks.
+        """
+        pass
 
+    def __enter__(self) -> "Filter":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        """
+        This method is called when the filter is used in a context manager.
+        It calls the `shutdown` method to release resources or perform cleanup tasks.
+        """
+        self.shutdown()
+
+
+@deprecated_since(version="1.0.0", alternative="Filter")
 class TokenFilter:
     """
     Base class for token-level filters.
@@ -158,11 +261,6 @@ class TokenFilter:
         token = Token(text)
         token = self.apply(token)
         return token.text
-
-    def get_jsonable_vars(self) -> dict:
-        # Output key-values of member variables that can be obtained by var(self), except "logger".
-        exclude_keys = ["logger"]
-        return dict(filter(lambda item: item[0] not in exclude_keys, vars(self).items()))
 
     def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
         """
