@@ -284,7 +284,7 @@ dev = [
     { name = "taskipy" },
     { name = "types-requests" },
 ]
-doc = [
+docs = [
     { name = "pdoc" },
 ]
 lint = [
@@ -315,7 +315,7 @@ dev = [
     { name = "taskipy", specifier = ">=1.10.3,<2" },
     { name = "types-requests", specifier = ">=2.32.0.20240914,<3" },
 ]
-doc = [{ name = "pdoc", specifier = ">=12.3.1,<13" }]
+docs = [{ name = "pdoc", specifier = ">=12.3.1,<13" }]
 lint = [
     { name = "mypy", specifier = "~=1.0" },
     { name = "ruff", specifier = ">=0.11.13" },

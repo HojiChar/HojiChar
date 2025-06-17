@@ -1,6 +1,6 @@
 [project]
 name = "hojichar"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Text preprocessing management system."
 authors = [{ name = "kenta.shinzato", email = "hoppiece@gmail.com" }]
 requires-python = "~=3.9"
@@ -42,7 +42,7 @@ test = [
     "pytest>=7.1.2,<8",
     "pytest-cov>=4.0.0,<5",
 ]
-doc = ["pdoc>=12.3.1,<13"]
+docs = ["pdoc>=12.3.1,<13"]
 
 [tool.uv]
 default-groups = [
@@ -50,6 +50,13 @@ default-groups = [
     "lint",
     "test",
 ]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
 
 [tool.ruff]
 line-length = 99
@@ -72,8 +79,6 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 
-[tool.uv-dynamic-versioning]
-fallback-version = "0.0.0" 
 [tool.black]
 line-length = 99
 
