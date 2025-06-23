@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 from hojichar.core.filter_interface import Filter
