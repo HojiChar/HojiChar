@@ -2,7 +2,7 @@ import json
 import logging
 import pprint
 from dataclasses import asdict
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 

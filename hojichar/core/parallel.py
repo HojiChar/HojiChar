@@ -6,7 +6,7 @@ import os
 import signal
 from copy import copy
 from multiprocessing.pool import Pool
-from typing import Any, Dict, Iterator, List
+from typing import Iterator, List
 
 import hojichar
 from hojichar.core import inspection

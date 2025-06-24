@@ -3,7 +3,6 @@ import numpy as np
 from hojichar.core.composition import Compose
 from hojichar.core.models import Document, Statistics
 from hojichar.filters.document_filters import DiscardAll, ExampleHojiChar, Identity
-from hojichar.filters.tokenization import BlankCharTokenizer
 
 
 class TestCompose:

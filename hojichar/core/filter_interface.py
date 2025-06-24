@@ -1,5 +1,4 @@
 import logging
-import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Union
 
@@ -323,7 +322,7 @@ class TokenFilter(Filter, ABC):
         self.p = p
         self.skip_rejected = skip_rejected
 
-    def apply(self, token: Token) -> Token:  # type: ignore[override]
+    def apply(self, token: Token) -> Token:  # type: ignore
         raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
         return token
 
@@ -331,7 +330,7 @@ class TokenFilter(Filter, ABC):
         document.tokens = [self.apply(token) for token in document.tokens if not token.is_rejected]
         return document
 
-    def __call__(self, text: str) -> str:  # type: ignore[override]
+    def __call__(self, text: str) -> str:  # type: ignore
         token = Token(text)
         token = self.apply(token)
         return token.text
