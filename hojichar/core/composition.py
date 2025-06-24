@@ -1,13 +1,10 @@
-import json
 import logging
-import pprint
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
 from hojichar.core.filter_interface import Filter, TokenFilter
 from hojichar.core.models import Document
-from hojichar.utils.warn_deprecation import deprecated_since
 
 
 class Compose(Filter):
@@ -35,7 +32,7 @@ class Compose(Filter):
         """
         super().__init__(random_state=random_state, *args, **kwargs)
         self.set_filters(filters)
-        self.logger = logging.getLogger("hojichar.Compose")
+        self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
         self._total_stats: Optional[List[Dict[str, Any]]] = None
 
@@ -48,18 +45,17 @@ class Compose(Filter):
             filters (List[Union[Filter, TokenFilter]]): Target filters
         """
         self.filters: List[Union[Filter, TokenFilter]] = []
-        for filter in filters:
-            if isinstance(filter, Compose):
-                sub_filters = filter.filters
-                for filt in sub_filters:
-                    filt.set_rng_if_not_initialized(self._rng)
-                    self.filters.append(filt)
+        for f in filters:
+            if isinstance(f, Compose):
+                for sub in f.filters:
+                    sub.set_rng_if_not_initialized(self._rng)
+                    self.filters.append(sub)
             else:
-                filter.set_rng_if_not_initialized(self._rng)
-                self.filters.append(filter)
+                f.set_rng_if_not_initialized(self._rng)
+                self.filters.append(f)
 
     def __call__(self, text: str, **kwargs: Any) -> str:
-        document = Document(text)
+        document = Document(text, **kwargs)
         document = self.apply(document)
         if document.is_rejected:
             return ""
@@ -135,7 +131,7 @@ class Compose(Filter):
             stats.append({"name": "total", **self.get_statistics()})
             for i, filt in enumerate(self.filters):
                 stats.append({"name": f"{i}-{filt.name}", **filt.get_statistics()})
-
+            self._total_stats = stats
             return stats
         else:
             return self._total_stats
@@ -148,13 +144,13 @@ class Compose(Filter):
         self._total_stats = stats
 
     @staticmethod
-    def merge_total_stats(
+    def merge_total_statistics(
         x: List[Dict[str, Any]],
         y: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         """
         Merge two statistics lists by 'name'.
-        同じ 'name' をもつエントリがあれば、'name' 以外のキーは数値として加算します。
+        If there are entries with the same 'name', other keys are summed as numbers.
         """
         merged: Dict[str, Dict[str, Any]] = {}
         for stat in x:
@@ -173,3 +169,9 @@ class Compose(Filter):
                     else:
                         base[k] = v
         return list(merged.values())
+
+    def shutdown(self) -> None:
+        for f in self.filters:
+            f.shutdown()
+
+        super().shutdown()

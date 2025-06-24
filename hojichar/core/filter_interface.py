@@ -192,7 +192,7 @@ class Filter(ABC):
 
         Parameters
         ----------
-        document_stream : Iterable[Document]
+        stream : Iterable[Document]
             Stream of input documents
 
         Returns
@@ -340,10 +340,10 @@ class Filter(ABC):
         return list(batch)
 
     def __init_rng(self, random_state: Optional[Union[int, np.random.Generator]]) -> None:
-        self._give_random_state_at_init = True
+        self._owns_rng = True
         if random_state is None:
             self._rng = np.random.default_rng()
-            self._give_random_state_at_init = False
+            self._owns_rng = False
         elif isinstance(random_state, int):
             self._rng = np.random.default_rng(random_state)
         elif isinstance(random_state, np.random.Generator):
@@ -354,7 +354,7 @@ class Filter(ABC):
         Set the random number generator for this filter if it is not already initialized.
         This method is called by Compose class.
         """
-        if not self._give_random_state_at_init:
+        if not self._owns_rng:
             self._rng = rng
 
 
