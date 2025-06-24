@@ -1,18 +1,14 @@
 import json
 import logging
 import pprint
-from typing import Any, List, Optional, Union
+import time
+from collections import Counter
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
 from hojichar.core.filter_interface import Filter, TokenFilter
-from hojichar.core.inspection import Inspector, StatisticsCounter, StatsContainer
 from hojichar.core.models import Document
-
-
-class BeforeProcessFilter(Filter):
-    def apply(self, doc: Document) -> Document:
-        return doc
 
 
 class Compose(Filter):
@@ -41,24 +37,6 @@ class Compose(Filter):
         super().__init__(*args, **kwargs)
         self.set_filters(filters)
         self.logger = logging.getLogger("hojichar.Compose")
-        self.before_process_inspector = Inspector(
-            target_filter=BeforeProcessFilter(), filter_idx=-1
-        )
-        self.inspectors = [
-            Inspector(target_filter=filter, filter_idx=idx)
-            for idx, filter in enumerate(self.filters)
-        ]
-        self._statistics = StatisticsCounter(self.inspectors)
-
-        # Turn random_state into a `np.random.Generator` instance.
-        if random_state is None:
-            self.rng = np.random.default_rng()
-        elif isinstance(random_state, int):
-            self.rng = np.random.default_rng(random_state)
-        elif isinstance(random_state, np.random.Generator):
-            self.rng = random_state
-        else:
-            raise ValueError(f"{random_state} cannot be used to seed.")
 
     def set_filters(self, filters: List[Union[Filter, TokenFilter]]) -> None:
         """
@@ -71,8 +49,12 @@ class Compose(Filter):
         self.filters: List[Union[Filter, TokenFilter]] = []
         for filter in filters:
             if isinstance(filter, Compose):
-                self.filters.extend(filter.filters)
+                sub_filters = filter.filters
+                for filt in sub_filters:
+                    filt.set_rng_if_not_initialized(self._rng)
+                    self.filters.append(filt)
             else:
+                filter.set_rng_if_not_initialized(self._rng)
                 self.filters.append(filter)
 
     def __call__(self, text: str, **kwargs: Any) -> str:
@@ -83,38 +65,73 @@ class Compose(Filter):
         else:
             return document.text
 
-    def _apply_filter(self, filt: Union[Filter, TokenFilter], document: Document) -> Document:
-        if document.is_rejected and filt.skip_rejected:
-            pass
-        else:
-            if filt.p == 1:
-                document = filt.apply_filter(document)
-            else:
-                if self.rng.random() < filt.p:
-                    document = filt.apply_filter(document)
-        return document
-
     def apply(self, document: Document) -> Document:
-        document = self.before_process_inspector.apply(document)
-        previous_inspector = self.before_process_inspector
+        stat = self.record_stats(document)
         for i, filt in enumerate(self.filters):
-            inspector = self.inspectors[i]
-            document = self._apply_filter(filt=filt, document=document)
-            document = inspector.apply(document)
-            if (not previous_inspector.is_rejected) and inspector.is_rejected:
-                document.reject_reason = filt.get_jsonable_vars(exclude_keys={"skip_rejected"})
-            previous_inspector = inspector
-
-        self._statistics.update_changes(document, self.before_process_inspector, self.inspectors)
+            document = filt._apply(document)
+        new_stat = self.record_stats(document)
+        diff_stat = self.diff_stats(stat, new_stat)
+        self._statistics.update(diff_stat)
         return document
+
+    def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+        stats = [self.record_stats(doc) for doc in batch]
+        for i, filt in enumerate(self.filters):
+            batch = filt._apply_batch(batch)
+        batch = self._finalize_batch(batch, stats)
+        return list(batch)
+
+    def apply_stream(
+        self, stream: Iterable[Document], batch_size: int = 128
+    ) -> Iterable[Document]:
+        for i, filt in enumerate(self.filters):
+            stream = filt.apply_stream(stream)
+
+        for doc in stream:
+            out_stat = self.record_stats(doc)
+            self._statistics.update(
+                {
+                    "num_output": 1,
+                    "output_bytes": 0 if doc.is_rejected else out_stat["bytes"],
+                    "output_chars": 0 if doc.is_rejected else len(doc.text),
+                    "num_discard": 1 if doc.is_rejected else 0,
+                    "diff_bytes": -out_stat["bytes"]
+                    if doc.is_rejected
+                    else out_stat["bytes"] - doc.extras.get("__input_bytes", out_stat["bytes"]),
+                    "diff_chars": -out_stat["num_chars"]
+                    if doc.is_rejected
+                    else out_stat["num_chars"]
+                    - doc.extras.get("__input_chars", out_stat["num_chars"]),
+                    "cumulative_time_ns": out_stat["time_ns"]
+                    - doc.extras.get("__start_ns", out_stat["time_ns"]),
+                }
+            )
+            del doc.extras["__start_ns"]
+            del doc.extras["__input_bytes"]
+            del doc.extras["__input_chars"]
+            yield doc
+
+    def _count_input_stats(self, stream: Iterable[Document]) -> Iterable[Document]:
+        """
+        Count the statistics of the input documents.
+        """
+        for doc in stream:
+            stat = self.record_stats(doc)
+            self._statistics.update(
+                {
+                    "num_input": 1,
+                    "input_bytes": stat["bytes"],
+                    "input_chars": len(doc.text),
+                }
+            )
+            doc.extras["__start_ns"] = stat["time_ns"]
+            doc.extras["__input_bytes"] = stat["bytes"]
+            doc.extras["__input_chars"] = stat["num_chars"]
+            yield doc
 
     @property
     def statistics(self) -> dict:
-        return self._statistics.get_statistics()
-
-    @property
-    def statistics_obj(self) -> StatsContainer:
-        return self._statistics.stats
+        return self.get_statistics()
 
     def summary(self, format: str = "print") -> None:
         info = [

@@ -143,7 +143,7 @@ class Filter(ABC):
 
         return document
 
-    def apply_batch(self, documents: Sequence[Document]) -> List[Document]:
+    def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
         """
         Apply the filter to a batch of documents.
         You can override this method if you want to
@@ -159,7 +159,7 @@ class Filter(ABC):
         list[Document]
             List of processed documents
         """
-        return [self.apply(document) for document in documents]
+        return [self.apply(document) for document in batch]
 
     def _apply_batch(self, batch: Sequence[Document]) -> List[Document]:
         """
@@ -179,7 +179,7 @@ class Filter(ABC):
         batch = self._finalize_batch(batch, stats)
         return batch
 
-    def apply_stream(self, document_stream: Iterable[Document]) -> Iterable[Document]:
+    def apply_stream(self, stream: Iterable[Document]) -> Iterable[Document]:
         """
         Apply the filter to a stream of documents.
         This method is used when you want to process documents one by one.
@@ -198,11 +198,11 @@ class Filter(ABC):
         """
 
         if not self._use_batch:
-            for document in document_stream:
+            for document in stream:
                 yield self._apply(document)
         else:
             batch: list[Document] = []
-            for document in document_stream:
+            for document in stream:
                 if self._check_skip(document):
                     yield document
                     continue
@@ -275,6 +275,12 @@ class Filter(ABC):
         has_rejected = not old_stats["is_rejected"] and new_stats["is_rejected"]
         if has_rejected:
             return {
+                "num_input": 1,
+                "input_bytes": old_stats["bytes"],
+                "input_chars": old_stats["num_chars"],
+                "num_output": 0,
+                "output_bytes": 0,
+                "output_chars": 0,
                 "num_discard": 1,
                 "diff_bytes": -old_stats["bytes"],
                 "diff_chars": -old_stats["num_chars"],
@@ -282,6 +288,12 @@ class Filter(ABC):
             }
         else:
             return {
+                "num_input": 1,
+                "input_bytes": old_stats["bytes"],
+                "input_chars": old_stats["num_chars"],
+                "num_output": 1,
+                "output_bytes": new_stats["bytes"],
+                "output_chars": new_stats["num_chars"],
                 "num_discard": 0,
                 "diff_bytes": new_stats["bytes"] - old_stats["bytes"],
                 "diff_chars": new_stats["num_chars"] - old_stats["num_chars"],
@@ -335,7 +347,7 @@ class Filter(ABC):
 
 
 @deprecated_since(version="1.0.0", alternative="Filter")
-class TokenFilter:
+class TokenFilter(Filter, ABC):
     """
     Base class for token-level filters.
 
@@ -352,7 +364,7 @@ class TokenFilter:
         self.p = p
         self.skip_rejected = skip_rejected
 
-    def apply(self, token: Token) -> Token:
+    def apply(self, token: Token) -> Token:  # type: ignore[override]
         raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
         return token
 
@@ -360,7 +372,7 @@ class TokenFilter:
         document.tokens = [self.apply(token) for token in document.tokens if not token.is_rejected]
         return document
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str) -> str:  # type: ignore[override]
         token = Token(text)
         token = self.apply(token)
         return token.text
