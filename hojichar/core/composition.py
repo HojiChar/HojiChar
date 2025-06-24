@@ -1,10 +1,15 @@
+import json
 import logging
+import pprint
+from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
+from hojichar.core import inspection
 from hojichar.core.filter_interface import Filter, TokenFilter
-from hojichar.core.models import Document
+from hojichar.core.models import DocInfo, Document, Statistics
+from hojichar.utils.warn_deprecation import deprecated_since
 
 
 class Compose(Filter):
@@ -34,7 +39,7 @@ class Compose(Filter):
         self.set_filters(filters)
         self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
 
-        self._total_stats: Optional[List[Dict[str, Any]]] = None
+        self._statistics.name = "Total"
 
     def set_filters(self, filters: List[Union[Filter, TokenFilter]]) -> None:
         """
@@ -45,14 +50,24 @@ class Compose(Filter):
             filters (List[Union[Filter, TokenFilter]]): Target filters
         """
         self.filters: List[Union[Filter, TokenFilter]] = []
+
+        filter_idx = 0
         for f in filters:
             if isinstance(f, Compose):
                 for sub in f.filters:
                     sub.set_rng_if_not_initialized(self._rng)
+                    name = f"{filter_idx}-{sub.__class__.__name__}"
+                    sub.name = name
+                    sub._statistics.name = name
                     self.filters.append(sub)
+                    filter_idx += 1
             else:
                 f.set_rng_if_not_initialized(self._rng)
+                name = f"{filter_idx}-{f.__class__.__name__}"
+                f.name = name
+                f._statistics.name = name
                 self.filters.append(f)
+                filter_idx += 1
 
     def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text, **kwargs)
@@ -63,16 +78,16 @@ class Compose(Filter):
             return document.text
 
     def apply(self, document: Document) -> Document:
-        stat = self.record_stats(document)
+        stat = DocInfo(document)
         for i, filt in enumerate(self.filters):
             document = filt._apply(document)
-        new_stat = self.record_stats(document)
-        diff_stat = self.diff_stats(stat, new_stat)
+        new_stat = DocInfo(document)
+        diff_stat = Statistics.from_diff(stat, new_stat)
         self._statistics.update(diff_stat)
         return document
 
     def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
-        stats = [self.record_stats(doc) for doc in batch]
+        stats = [DocInfo(doc) for doc in batch]
         for i, filt in enumerate(self.filters):
             batch = filt._apply_batch(batch)
         batch = self._finalize_batch(batch, stats)
@@ -84,27 +99,13 @@ class Compose(Filter):
             stream = filt.apply_stream(stream)
 
         for doc in stream:
-            out_stat = self.record_stats(doc)
-            self._statistics.update(
-                {
-                    "num_output": 0 if doc.is_rejected else 1,
-                    "output_bytes": 0 if doc.is_rejected else out_stat["bytes"],
-                    "output_chars": 0 if doc.is_rejected else len(doc.text),
-                    "num_discard": 1 if doc.is_rejected else 0,
-                    "diff_bytes": -out_stat["bytes"]
-                    if doc.is_rejected
-                    else out_stat["bytes"] - doc.extras.get("__input_bytes", out_stat["bytes"]),
-                    "diff_chars": -out_stat["num_chars"]
-                    if doc.is_rejected
-                    else out_stat["num_chars"]
-                    - doc.extras.get("__input_chars", out_stat["num_chars"]),
-                    "cumulative_time_ns": out_stat["time_ns"]
-                    - doc.extras.get("__start_ns", out_stat["time_ns"]),
-                }
-            )
-            del doc.extras["__start_ns"]
-            del doc.extras["__input_bytes"]
-            del doc.extras["__input_chars"]
+            in_stat = DocInfo.from_dict(doc.extras["__init_stats"])
+            in_stat = DocInfo(doc)
+            out_stat = DocInfo(doc)
+
+            diff_stat = Statistics.from_diff(in_stat, out_stat)
+            self._statistics.update(diff_stat)
+            del doc.extras["__init_stats"]
             yield doc
 
     def _count_input_stats(self, stream: Iterable[Document]) -> Iterable[Document]:
@@ -112,66 +113,56 @@ class Compose(Filter):
         Count the statistics of the input documents.
         """
         for doc in stream:
-            stat = self.record_stats(doc)
-            self._statistics.update(
-                {
-                    "num_input": 1,
-                    "input_bytes": stat["bytes"],
-                    "input_chars": stat["num_chars"],
-                }
-            )
-            doc.extras["__start_ns"] = stat["time_ns"]
-            doc.extras["__input_bytes"] = stat["bytes"]
-            doc.extras["__input_chars"] = stat["num_chars"]
+            stat = DocInfo(doc)
+            doc.extras["__init_stats"] = asdict(stat)
             yield doc
 
-    def get_total_statistics(self) -> List[Dict[str, Any]]:
-        if self._total_stats is None:
-            stats = []
-            stats.append({"name": "total", **self.get_statistics()})
-            for i, filt in enumerate(self.filters):
-                stats.append({"name": f"{i}-{filt.name}", **filt.get_statistics()})
-            self._total_stats = stats
-            return stats
-        else:
-            return self._total_stats
-
-    def set_total_statistics(self, stats: List[Dict[str, Any]]) -> None:
-        """
-        Set the total statistics for the Compose object.
-        This is used to set pre-computed statistics.
-        """
-        self._total_stats = stats
-
-    @staticmethod
-    def merge_total_statistics(
-        x: List[Dict[str, Any]],
-        y: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        """
-        Merge two statistics lists by 'name'.
-        If there are entries with the same 'name', other keys are summed as numbers.
-        """
-        merged: Dict[str, Dict[str, Any]] = {}
-        for stat in x:
-            merged[stat["name"]] = stat.copy()
-        for stat in y:
-            name = stat["name"]
-            if name not in merged:
-                merged[name] = stat.copy()
-            else:
-                base = merged[name]
-                for k, v in stat.items():
-                    if k == "name":
-                        continue
-                    if isinstance(v, (int, float)):
-                        base[k] = base.get(k, 0) + v
-                    else:
-                        base[k] = v
-        return list(merged.values())
+    def get_total_statistics(self) -> List[Statistics]:
+        stats = []
+        stats.append(self.get_statistics())
+        for i, filt in enumerate(self.filters):
+            stats.append(filt.get_statistics())
+        return stats
 
     def shutdown(self) -> None:
         for f in self.filters:
             f.shutdown()
 
         super().shutdown()
+
+    @property
+    def statistics(self) -> dict:
+        return inspection.statistics_obj_adapter(  # type: ignore
+            self.get_total_statistics()
+        ).get_human_readable_values()
+
+    @property
+    def statistics_obj(self) -> inspection.StatsContainer:
+        """
+        Get the statistics of the Compose object and sub filters.
+        This method returns a StatsContainer object which contains the statistics
+        of the Compose object and sub filters.
+        """
+        return inspection.statistics_obj_adapter(self.get_total_statistics())  # type: ignore
+
+    @deprecated_since("1.0.0", "get_total_statistics")
+    def summary(self, format: str = "print") -> None:
+        info = [
+            {
+                "layer": i,
+                "name": filt.name,
+                "doc": filt.__doc__,
+            }
+            for i, filt in enumerate(self.filters)
+        ]
+
+        def to_json(filter_info: dict) -> dict:
+            filter_info["doc"] = "".join(d.strip() for d in filter_info["doc"].split("\n"))
+            return filter_info
+
+        if format == "json":
+            print(json.dumps(list(map(to_json, info)), ensure_ascii=False, indent="\t"))
+        if format == "print":
+            for layer in info:
+                print(f"[{layer['layer']}] {layer['name']}")
+                pprint.pprint(layer["doc"])

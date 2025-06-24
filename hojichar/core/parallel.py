@@ -9,6 +9,8 @@ from multiprocessing.pool import Pool
 from typing import Any, Dict, Iterator, List
 
 import hojichar
+from hojichar.core import inspection
+from hojichar.core.models import Statistics
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ def _init_worker(filter: hojichar.Compose, ignore_errors: bool) -> None:
 
 def _worker(
     doc: hojichar.Document,
-) -> tuple[hojichar.Document, int, List[Dict[str, Any]], str | None]:
+) -> tuple[hojichar.Document, int, List[Statistics], str | None]:
     global PARALLEL_BASE_FILTER, WORKER_PARAM_IGNORE_ERRORS
     ignore_errors = WORKER_PARAM_IGNORE_ERRORS
     error_message = None
@@ -84,7 +86,7 @@ class Parallel:
         self.ignore_errors = ignore_errors
 
         self._pool: Pool | None = None
-        self._pid_stats: dict[int, List[Dict[str, Any]]] | None = None
+        self._pid_stats: dict[int, List[Statistics]] | None = None
 
     def __enter__(self) -> Parallel:
         self._pool = Pool(
@@ -132,11 +134,16 @@ class Parallel:
             self._pool.join()
         if self._pid_stats:
             total_stats = functools.reduce(
-                lambda x, y: self.filter.merge_total_stats(x, y), self._pid_stats.values()
+                lambda x, y: Statistics.add_list_of_stats(x, y), self._pid_stats.values()
             )
-            self.filter.set_total_statistics(total_stats)
+            self.filter._statistics.update(Statistics.get_filter("Total", total_stats))
+            for stat in total_stats:
+                for filt in self.filter.filters:
+                    if stat.name == filt.name:
+                        filt._statistics.update(stat)
+                        break
 
-    def get_total_statistics(self) -> List[Dict[str, Any]]:
+    def get_total_statistics(self) -> List[Statistics]:
         """
         Returns a statistics object of the total statistical
         values processed within the Parallel block.
@@ -146,8 +153,20 @@ class Parallel:
         """
         if self._pid_stats:
             total_stats = functools.reduce(
-                lambda x, y: self.filter.merge_total_stats(x, y), self._pid_stats.values()
+                lambda x, y: Statistics.add_list_of_stats(x, y), self._pid_stats.values()
             )
             return total_stats
         else:
             return []
+
+    @property
+    def statistics_obj(self) -> inspection.StatsContainer:
+        """
+        Returns the statistics object of the Parallel instance.
+        This is a StatsContainer object which contains the statistics
+        of the Parallel instance and sub filters.
+
+        Returns:
+            StatsContainer: Statistics object
+        """
+        return inspection.statistics_obj_adapter(self.get_total_statistics())  # type: ignore

@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Optional
+import time
+from dataclasses import InitVar, dataclass, field
+from typing import Any, Dict, List, Mapping, Optional, overload
 
 from hojichar.utils.warn_deprecation import deprecated_since
 
@@ -59,3 +61,149 @@ class Document:
         return (
             f"Document(text={self.text!r}, is_rejected={self.is_rejected}, extras={self.extras})"  # noqa
         )
+
+
+@dataclass
+class DocInfo:
+    document: InitVar[
+        "Document"
+    ]  # this field is used to initialize the dataclass and not stored in the instance
+
+    is_rejected: bool = field(init=False)
+    bytes: int = field(init=False)
+    chars: int = field(init=False)
+    time_ns: int = field(init=False)
+
+    def __post_init__(self, document: "Document") -> None:
+        self.is_rejected = document.is_rejected
+        self.bytes = len(document.text.encode("utf-8"))
+        self.chars = len(document.text)
+        self.time_ns = time.perf_counter_ns()
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "DocInfo":
+        obj = object.__new__(cls)
+        for k in ("is_rejected", "bytes", "chars", "time_ns"):
+            setattr(obj, k, data[k])
+        return obj
+
+
+@dataclass
+class Statistics:
+    name: Optional[str] = None
+    input_num: int = 0
+    input_bytes: int = 0
+    input_chars: int = 0
+    output_num: int = 0
+    output_bytes: int = 0
+    output_chars: int = 0
+    discard_num: int = 0
+    diff_bytes: int = 0
+    diff_chars: int = 0
+    cumulative_time_ns: int = 0
+
+    def update(self, other: "Statistics") -> None:
+        self.input_num += other.input_num
+        self.input_bytes += other.input_bytes
+        self.input_chars += other.input_chars
+        self.output_num += other.output_num
+        self.output_bytes += other.output_bytes
+        self.output_chars += other.output_chars
+        self.discard_num += other.discard_num
+        self.diff_bytes += other.diff_bytes
+        self.diff_chars += other.diff_chars
+        self.cumulative_time_ns += other.cumulative_time_ns
+
+    def reset(self) -> "Statistics":
+        self.input_num = 0
+        self.input_bytes = 0
+        self.input_chars = 0
+        self.output_num = 0
+        self.output_bytes = 0
+        self.output_chars = 0
+        self.discard_num = 0
+        self.diff_bytes = 0
+        self.diff_chars = 0
+        self.cumulative_time_ns = 0
+        return self
+
+    @staticmethod
+    def from_diff(before: "DocInfo", after: "DocInfo    ") -> "Statistics":
+        if not before.is_rejected and after.is_rejected:
+            return Statistics(
+                input_num=1,
+                input_bytes=before.bytes,
+                input_chars=before.chars,
+                output_num=0,
+                output_bytes=0,
+                output_chars=0,
+                discard_num=1,
+                diff_bytes=-before.bytes,
+                diff_chars=-before.chars,
+                cumulative_time_ns=after.time_ns - before.time_ns,
+            )
+        else:
+            return Statistics(
+                input_num=1,
+                input_bytes=before.bytes,
+                input_chars=before.chars,
+                output_num=1,
+                output_bytes=after.bytes,
+                output_chars=after.chars,
+                discard_num=0,
+                diff_bytes=after.bytes - before.bytes,
+                diff_chars=after.chars - before.chars,
+                cumulative_time_ns=after.time_ns - before.time_ns,
+            )
+
+    @staticmethod
+    def add(x: "Statistics", y: "Statistics") -> "Statistics":
+        assert x.name == y.name, "Layer names must match"
+        return Statistics(
+            name=x.name,
+            input_num=x.input_num + y.input_num,
+            input_bytes=x.input_bytes + y.input_bytes,
+            input_chars=x.input_chars + y.input_chars,
+            output_num=x.output_num + y.output_num,
+            output_bytes=x.output_bytes + y.output_bytes,
+            output_chars=x.output_chars + y.output_chars,
+            discard_num=x.discard_num + y.discard_num,
+            diff_bytes=x.diff_bytes + y.diff_bytes,
+            diff_chars=x.diff_chars + y.diff_chars,
+            cumulative_time_ns=x.cumulative_time_ns + y.cumulative_time_ns,
+        )
+
+    @staticmethod
+    def add_list_of_stats(x: List["Statistics"], y: List["Statistics"]) -> List["Statistics"]:
+        """
+        Add FilterStatistics objects from two lists by matching their names.
+        This method assumes that both lists contain FilterStatistics objects
+        with the same names, and it will raise a ValueError if the sets of names
+        in the two lists do not match.
+        """
+        # check if the names in both lists match
+        names_x = {stat.name for stat in x}
+        names_y = {stat.name for stat in y}
+        if names_x != names_y:
+            raise ValueError(f"name の集合が一致しません: {names_x} vs {names_y}")
+
+        y_map = {stat.name: stat for stat in y}
+
+        # keep the order of x and add corresponding y
+        result: List[Statistics] = []
+        for stat_x in x:
+            stat_y = y_map[stat_x.name]
+            result.append(Statistics.add(stat_x, stat_y))
+
+        return result
+
+    @staticmethod
+    def get_filter(name: str, stats: List["Statistics"]) -> "Statistics":
+        """
+        Get a Statistics object by its name from a list of statistics.
+        If the name is not found, return None.
+        """
+        for stat in stats:
+            if stat.name == name:
+                return stat
+        raise KeyError(f"Statistics with name '{name}' not found in the list.")

@@ -1,12 +1,11 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Union
 
 import numpy as np
 
-from hojichar.core.models import Document, Token
+from hojichar.core.models import DocInfo, Document, Statistics, Token
 from hojichar.utils.warn_deprecation import deprecated_since
 
 
@@ -76,7 +75,7 @@ class Filter(ABC):
         self._use_batch = use_batch
         self._batch_size = batch_size
 
-        self._statistics: Dict[str, int] = Counter()
+        self._statistics: Statistics = Statistics()
 
     @abstractmethod
     def apply(self, document: Document) -> Document:
@@ -131,16 +130,19 @@ class Filter(ABC):
         This method may be used in `apply` method of `Compose` class.
         """
 
-        stats = self.record_stats(document)
+        stats = DocInfo(document=document)
 
         if not self._check_skip(document):
             document = self.apply(document)
 
-        new_stats = self.record_stats(document)
-        diff_stats = self.diff_stats(old_stats=stats, new_stats=new_stats)
+        new_stats = DocInfo(document=document)
+        diff_stats = Statistics.from_diff(
+            before=stats,
+            after=new_stats,
+        )
         self._statistics.update(diff_stats)
 
-        if not stats["is_rejected"] and new_stats["is_rejected"]:
+        if not stats.is_rejected and new_stats.is_rejected:
             document.reject_reason = self.get_jsonable_vars()
 
         return document
@@ -177,7 +179,7 @@ class Filter(ABC):
         if self.p < 1:
             skip = self._rng.random() > self.p
 
-        stats = [self.record_stats(doc) for doc in batch]
+        stats = [DocInfo(document=doc) for doc in batch]
         if not skip:
             batch = self.apply_batch(batch)
         batch = self._finalize_batch(batch, stats)
@@ -213,35 +215,29 @@ class Filter(ABC):
 
                 batch.append(document)
                 if len(batch) >= self._batch_size:
-                    stats = [self.record_stats(doc) for doc in batch]
+                    stats = [DocInfo(doc) for doc in batch]
                     batch = self.apply_batch(batch)
                     batch = self._finalize_batch(batch, stats)
                     yield from batch
                     batch.clear()
             if batch:
-                stats = [self.record_stats(doc) for doc in batch]
+                stats = [DocInfo(doc) for doc in batch]
                 batch = self.apply_batch(batch)
                 batch = self._finalize_batch(batch, stats)
                 yield from batch
-
-    def get_statistics(self) -> Dict[str, int]:
-        """
-        Get the statistics of the filter.
-        """
-        return self._statistics.copy()
-
-    @staticmethod
-    def merge_statistics(x: Dict[str, int], y: Dict[str, int]) -> Dict[str, int]:
-        """
-        Merge two statistics dictionaries.
-        This method is used to merge the statistics of multiple filters.
-        """
-        return Counter(x) + Counter(y)
 
     def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text, **kwargs)
         document = self._apply(document)
         return document.text
+
+    def get_statistics(self) -> Statistics:
+        """
+        Get the statistics of this filter.
+        This method returns the statistics of the filter,
+        which includes the number of processed documents, discarded documents, and other statistics.
+        """
+        return self._statistics
 
     def shutdown(self) -> None:
         """
@@ -260,58 +256,6 @@ class Filter(ABC):
         """
         self.shutdown()
 
-    def record_stats(self, document: Document) -> Dict[str, Union[int, bool]]:
-        """
-        Record statistics for a document.
-        Override this method if you want to record additional statistics.
-        `is_rejected` is necessary.
-        """
-        return {
-            "is_rejected": document.is_rejected,
-            "bytes": len(document.text.encode("utf-8")),
-            "num_chars": len(document.text),
-            "time_ns": time.perf_counter_ns(),
-        }
-
-    def diff_stats(
-        self,
-        old_stats: Dict[str, Union[int, bool]],
-        new_stats: Dict[str, Union[int, bool]],
-    ) -> Dict[str, int]:
-        """
-        Calculate the difference in statistics between the old and new stats.
-        This method is used to update the statistics of the filter.
-        The return value should be additive (e.g., `update` method of Counter).
-        """
-
-        has_rejected = not old_stats["is_rejected"] and new_stats["is_rejected"]
-        if has_rejected:
-            return {
-                "num_input": 1,
-                "input_bytes": old_stats["bytes"],
-                "input_chars": old_stats["num_chars"],
-                "num_output": 0,
-                "output_bytes": 0,
-                "output_chars": 0,
-                "num_discard": 1,
-                "diff_bytes": -old_stats["bytes"],
-                "diff_chars": -old_stats["num_chars"],
-                "cumulative_time_ns": new_stats["time_ns"] - old_stats["time_ns"],
-            }
-        else:
-            return {
-                "num_input": 1,
-                "input_bytes": old_stats["bytes"],
-                "input_chars": old_stats["num_chars"],
-                "num_output": 1,
-                "output_bytes": new_stats["bytes"],
-                "output_chars": new_stats["num_chars"],
-                "num_discard": 0,
-                "diff_bytes": new_stats["bytes"] - old_stats["bytes"],
-                "diff_chars": new_stats["num_chars"] - old_stats["num_chars"],
-                "cumulative_time_ns": new_stats["time_ns"] - old_stats["time_ns"],
-            }
-
     def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
         """
         Get the member variable of this filter.
@@ -329,13 +273,16 @@ class Filter(ABC):
     def _finalize_batch(
         self: "Filter",
         batch: Sequence[Document],
-        old_stats: List[Dict[str, Union[int, bool]]],
+        old_stats: List[DocInfo],
     ) -> List[Document]:
-        new_stats = [self.record_stats(doc) for doc in batch]
+        new_stats = [DocInfo(doc) for doc in batch]
         for old, new, doc in zip(old_stats, new_stats, batch):
-            diff = self.diff_stats(old, new)
+            diff = Statistics.from_diff(
+                before=old,
+                after=new,
+            )
             self._statistics.update(diff)
-            if not old["is_rejected"] and new["is_rejected"]:
+            if not old.is_rejected and new.is_rejected:
                 doc.reject_reason = self.get_jsonable_vars()
         return list(batch)
 

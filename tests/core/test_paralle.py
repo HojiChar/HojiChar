@@ -45,6 +45,8 @@ def test_filter_statistics_increment(num_jobs: int | None) -> None:
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
         list(pfilter.imap_apply(iter(documents)))
 
+    assert filter.statistics_obj.total_info.processed_num == 10
+
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
         list(pfilter.imap_apply(iter(documents)))
 

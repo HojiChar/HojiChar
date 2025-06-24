@@ -42,46 +42,15 @@ def test__apply_batch_respects_p():
     assert [d.text for d in out1] == ["x_ok", "y_ok"]
 
 
-def test_record_stats_and_diff_stats_logic():
-    filt = DummyFilter()
-    d1 = Document("hi")
-    stats1 = filt.record_stats(d1)
-    # 非破棄ケース: バイト数／文字数が +3、time が +100
-    stats2 = {
-        "is_rejected": False,
-        "bytes": stats1["bytes"] + 3,
-        "num_chars": stats1["num_chars"] + 3,
-        "time_ns": stats1["time_ns"] + 100,
-    }
-    diff = filt.diff_stats(stats1, stats2)
-    assert diff["num_discard"] == 0
-    assert diff["diff_bytes"] == 3
-    assert diff["diff_chars"] == 3
-    assert diff["cumulative_time_ns"] == 100
-
-    # 破棄ケース: is_rejected が False→True に
-    stats3 = {
-        "is_rejected": True,
-        "bytes": stats1["bytes"],  # 無視される
-        "num_chars": stats1["num_chars"],
-        "time_ns": stats1["time_ns"] + 50,
-    }
-    diff2 = filt.diff_stats(stats1, stats3)
-    assert diff2["num_discard"] == 1
-    assert diff2["diff_bytes"] == -stats1["bytes"]
-    assert diff2["diff_chars"] == -stats1["num_chars"]
-    assert diff2["cumulative_time_ns"] == 50
-
-
 def test_get_statistics_accumulates_across_calls():
     filt = DummyFilter(p=1.0)
     # 2 件処理すると、_ok で+3 bytes×2、+3 chars×2
     for txt in ["A", "BB"]:
         filt._apply(Document(txt))
     stats = filt.get_statistics()
-    assert stats["num_discard"] == 0
-    assert stats["diff_bytes"] == 6
-    assert stats["diff_chars"] == 6
+    assert stats.discard_num == 0
+    assert stats.diff_bytes == 6
+    assert stats.diff_chars == 6
 
 
 def test_probability_reproducibility_with_seed():

@@ -6,7 +6,8 @@ import time
 from typing import Any, Dict, List, Union
 
 from hojichar.core.filter_interface import Filter, TokenFilter
-from hojichar.core.models import Document
+from hojichar.core.models import Document, Statistics
+from hojichar.utils.warn_deprecation import deprecated_since
 
 logger = logging.getLogger(__name__)
 
@@ -193,3 +194,33 @@ class StatisticsCounter:
 
     def get_statistics(self) -> dict:
         return self.stats.get_human_readable_values()
+
+
+@deprecated_since("1.0.0", "Compose.get_total_statistics")
+def statistics_obj_adapter(stats: List["Statistics"]) -> StatsContainer:
+    total = Statistics.get_filter("Total", stats)
+    total_info = DocStatistics(
+        processed_num=total.input_num,
+        discard_num=total.discard_num,
+        input_bytes=total.input_bytes,
+        output_bytes=total.output_bytes,
+        cumulative_time_ns=total.cumulative_time_ns,
+        total_token_num=total.input_chars,  # Assuming total_token_num is equivalent to input_chars
+    )
+
+    layers_info = {
+        stat.name: FilterStatistics(
+            name=stat.name,  # type: ignore
+            discard_num=stat.discard_num,
+            diff_bytes=stat.diff_bytes,
+            cumulative_time_ns=stat.cumulative_time_ns,
+            params={},
+        )
+        for stat in stats
+        if stat.name != "Total"
+    }
+
+    return StatsContainer(
+        total_info=total_info,
+        layers_info=layers_info,  # type: ignore
+    )
