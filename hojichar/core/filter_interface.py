@@ -127,6 +127,8 @@ class Filter(ABC):
           - checks if the document should be skipped
           - counts and logging the statistics
           - logging the reason for rejection if the document is rejected
+
+        This method may be used in `apply` method of `Compose` class.
         """
 
         stats = self.record_stats(document)
@@ -148,6 +150,8 @@ class Filter(ABC):
         Apply the filter to a batch of documents.
         You can override this method if you want to
         apply the filter to a batch of documents at once.
+
+        This method may be used in `apply_batch` method of `Compose` class.
 
         Parameters
         ----------
@@ -224,7 +228,15 @@ class Filter(ABC):
         """
         Get the statistics of the filter.
         """
-        return self._statistics
+        return self._statistics.copy()
+
+    @staticmethod
+    def merge_statistics(x: Dict[str, int], y: Dict[str, int]) -> Dict[str, int]:
+        """
+        Merge two statistics dictionaries.
+        This method is used to merge the statistics of multiple filters.
+        """
+        return Counter(x) + Counter(y)
 
     def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text, **kwargs)

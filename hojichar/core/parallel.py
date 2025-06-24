@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import functools
 import logging
-import multiprocessing
 import os
 import signal
 from copy import copy
-from typing import Iterator
+from multiprocessing.pool import Pool
+from typing import Any, Dict, Iterator, List
 
 import hojichar
-from hojichar.core.inspection import StatsContainer
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ def _init_worker(filter: hojichar.Compose, ignore_errors: bool) -> None:
 
 def _worker(
     doc: hojichar.Document,
-) -> tuple[hojichar.Document, int, StatsContainer, str | None]:
+) -> tuple[hojichar.Document, int, List[Dict[str, Any]], str | None]:
     global PARALLEL_BASE_FILTER, WORKER_PARAM_IGNORE_ERRORS
     ignore_errors = WORKER_PARAM_IGNORE_ERRORS
     error_message = None
@@ -40,7 +39,7 @@ def _worker(
             result = hojichar.Document("", is_rejected=True)
         else:
             raise e  # If we're not ignoring errors, let this one propagate
-    return result, os.getpid(), PARALLEL_BASE_FILTER.statistics_obj, error_message
+    return result, os.getpid(), PARALLEL_BASE_FILTER.get_total_statistics(), error_message
 
 
 class Parallel:
@@ -84,11 +83,11 @@ class Parallel:
         self.num_jobs = num_jobs
         self.ignore_errors = ignore_errors
 
-        self._pool: multiprocessing.pool.Pool | None = None
-        self._pid_stats: dict[int, StatsContainer] | None = None
+        self._pool: Pool | None = None
+        self._pid_stats: dict[int, List[Dict[str, Any]]] | None = None
 
     def __enter__(self) -> Parallel:
-        self._pool = multiprocessing.Pool(
+        self._pool = Pool(
             processes=self.num_jobs,
             initializer=_init_worker,
             initargs=(self.filter, self.ignore_errors),
@@ -118,8 +117,8 @@ class Parallel:
                 "Parallel instance not properly initialized. Use within a 'with' statement."
             )
         try:
-            for doc, pid, stats_obj, err_msg in self._pool.imap_unordered(_worker, docs):
-                self._pid_stats[pid] = stats_obj
+            for doc, pid, stat, err_msg in self._pool.imap_unordered(_worker, docs):
+                self._pid_stats[pid] = stat
                 if err_msg is not None:
                     logger.error(f"Error in worker {pid}: {err_msg}")
                 yield doc
@@ -132,12 +131,12 @@ class Parallel:
             self._pool.terminate()
             self._pool.join()
         if self._pid_stats:
-            self.filter._statistics.stats = self.filter._statistics.stats + functools.reduce(
-                lambda x, y: x + y, self._pid_stats.values()
+            total_stats = functools.reduce(
+                lambda x, y: self.filter.merge_total_stats(x, y), self._pid_stats.values()
             )
+            self.filter.set_total_statistics(total_stats)
 
-    @property
-    def statistics_obj(self) -> StatsContainer:
+    def get_total_statistics(self) -> List[Dict[str, Any]]:
         """
         Returns a statistics object of the total statistical
         values processed within the Parallel block.
@@ -146,18 +145,9 @@ class Parallel:
             StatsContainer: Statistics object
         """
         if self._pid_stats:
-            stats: StatsContainer = functools.reduce(lambda x, y: x + y, self._pid_stats.values())
+            total_stats = functools.reduce(
+                lambda x, y: self.filter.merge_total_stats(x, y), self._pid_stats.values()
+            )
+            return total_stats
         else:
-            stats = copy(self.filter.statistics_obj).reset()
-        return stats
-
-    @property
-    def statistics(self) -> dict:
-        """
-        Returns a statistics dict which friendly with human of the total statistical
-        values processed within the Parallel block.
-
-        Returns:
-            dict: Human readable statistics values
-        """
-        return self.statistics_obj.get_human_readable_values()
+            return []

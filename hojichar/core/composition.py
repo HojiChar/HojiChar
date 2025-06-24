@@ -1,14 +1,13 @@
 import json
 import logging
 import pprint
-import time
-from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
 from hojichar.core.filter_interface import Filter, TokenFilter
 from hojichar.core.models import Document
+from hojichar.utils.warn_deprecation import deprecated_since
 
 
 class Compose(Filter):
@@ -34,9 +33,11 @@ class Compose(Filter):
             Seed for applying filters randomly.
             `random_state` must be int or np.random.Generator instance.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(random_state=random_state, *args, **kwargs)
         self.set_filters(filters)
         self.logger = logging.getLogger("hojichar.Compose")
+
+        self._total_stats: Optional[List[Dict[str, Any]]] = None
 
     def set_filters(self, filters: List[Union[Filter, TokenFilter]]) -> None:
         """
@@ -81,9 +82,8 @@ class Compose(Filter):
         batch = self._finalize_batch(batch, stats)
         return list(batch)
 
-    def apply_stream(
-        self, stream: Iterable[Document], batch_size: int = 128
-    ) -> Iterable[Document]:
+    def apply_stream(self, stream: Iterable[Document]) -> Iterable[Document]:
+        stream = self._count_input_stats(stream)
         for i, filt in enumerate(self.filters):
             stream = filt.apply_stream(stream)
 
@@ -91,7 +91,7 @@ class Compose(Filter):
             out_stat = self.record_stats(doc)
             self._statistics.update(
                 {
-                    "num_output": 1,
+                    "num_output": 0 if doc.is_rejected else 1,
                     "output_bytes": 0 if doc.is_rejected else out_stat["bytes"],
                     "output_chars": 0 if doc.is_rejected else len(doc.text),
                     "num_discard": 1 if doc.is_rejected else 0,
@@ -121,7 +121,7 @@ class Compose(Filter):
                 {
                     "num_input": 1,
                     "input_bytes": stat["bytes"],
-                    "input_chars": len(doc.text),
+                    "input_chars": stat["num_chars"],
                 }
             )
             doc.extras["__start_ns"] = stat["time_ns"]
@@ -129,27 +129,47 @@ class Compose(Filter):
             doc.extras["__input_chars"] = stat["num_chars"]
             yield doc
 
-    @property
-    def statistics(self) -> dict:
-        return self.get_statistics()
+    def get_total_statistics(self) -> List[Dict[str, Any]]:
+        if self._total_stats is None:
+            stats = []
+            stats.append({"name": "total", **self.get_statistics()})
+            for i, filt in enumerate(self.filters):
+                stats.append({"name": f"{i}-{filt.name}", **filt.get_statistics()})
 
-    def summary(self, format: str = "print") -> None:
-        info = [
-            {
-                "layer": i,
-                "name": filt.name,
-                "doc": filt.__doc__,
-            }
-            for i, filt in enumerate(self.filters)
-        ]
+            return stats
+        else:
+            return self._total_stats
 
-        def to_json(filter_info: dict) -> dict:
-            filter_info["doc"] = "".join(d.strip() for d in filter_info["doc"].split("\n"))
-            return filter_info
+    def set_total_statistics(self, stats: List[Dict[str, Any]]) -> None:
+        """
+        Set the total statistics for the Compose object.
+        This is used to set pre-computed statistics.
+        """
+        self._total_stats = stats
 
-        if format == "json":
-            print(json.dumps(list(map(to_json, info)), ensure_ascii=False, indent="\t"))
-        if format == "print":
-            for layer in info:
-                print(f"[{layer['layer']}] {layer['name']}")
-                pprint.pprint(layer["doc"])
+    @staticmethod
+    def merge_total_stats(
+        x: List[Dict[str, Any]],
+        y: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Merge two statistics lists by 'name'.
+        同じ 'name' をもつエントリがあれば、'name' 以外のキーは数値として加算します。
+        """
+        merged: Dict[str, Dict[str, Any]] = {}
+        for stat in x:
+            merged[stat["name"]] = stat.copy()
+        for stat in y:
+            name = stat["name"]
+            if name not in merged:
+                merged[name] = stat.copy()
+            else:
+                base = merged[name]
+                for k, v in stat.items():
+                    if k == "name":
+                        continue
+                    if isinstance(v, (int, float)):
+                        base[k] = base.get(k, 0) + v
+                    else:
+                        base[k] = v
+        return list(merged.values())
