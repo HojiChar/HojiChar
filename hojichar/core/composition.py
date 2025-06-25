@@ -120,7 +120,6 @@ class Compose(Filter):
 
         for doc in stream:
             in_stat = DocInfo.from_dict(doc.extras["__init_stats"])
-            in_stat = DocInfo(doc)
             out_stat = DocInfo(doc)
 
             diff_stat = Statistics.from_diff(in_stat, out_stat)

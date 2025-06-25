@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from hojichar.core.filter_interface import Filter
@@ -9,6 +11,22 @@ class DummyFilter(Filter):
 
     def apply(self, document: Document) -> Document:
         document.text = document.text + "_ok"
+        return document
+
+
+class DummyAppendFilter(Filter):
+    """document.text に固定文字を追加するだけのフィルタ"""
+
+    def apply(self, document: Document) -> Document:
+        document.text = document.text + "X"
+        return document
+
+
+class DummyRejectFilter(Filter):
+    """常に is_rejected=True にして捨てるフィルタ"""
+
+    def apply(self, document: Document) -> Document:
+        document.is_rejected = True
         return document
 
 
@@ -110,3 +128,78 @@ def test_skip_rejected_in_batch_stream():
     filt2 = DummyFilter(p=1.0, skip_rejected=False, use_batch=True, batch_size=2)
     out2 = list(filt2.apply_stream(docs))
     assert all(d.text == "z_ok" for d in out2)
+
+
+def test_single_apply_updates_statistics():
+    f = DummyAppendFilter()
+    # 初期 stats は全ゼロ
+    assert f.get_statistics().to_dict()["input_num"] == 0
+
+    out = f("AB")  # __call__ → _apply → apply
+    assert out == "ABX"
+
+    stats = f.get_statistics().to_dict()
+    # 1 件処理された
+    assert stats["input_num"] == 1
+    assert stats["output_num"] == 1
+    # 文字数・バイト数差分は +1
+    assert stats["diff_chars"] == 1
+    assert stats["diff_bytes"] == 1
+    # 破棄なし
+    assert stats["discard_num"] == 0
+
+
+def test_batch_apply_updates_statistics():
+    f = DummyAppendFilter()
+    docs = [Document(""), Document("A")]
+    # _apply_batch を使わないと統計が取れないので明示的に呼び出し
+    processed = f._apply_batch(docs)
+    # テキスト変換確認
+    assert [d.text for d in processed] == ["X", "AX"]
+
+    stats = f.get_statistics().to_dict()
+    # 2 件入力、2 件出力
+    assert stats["input_num"] == 2
+    assert stats["output_num"] == 2
+    # 合計文字差分 = +2
+    assert stats["diff_chars"] == 2
+    assert stats["diff_bytes"] == 2
+
+
+def test_stream_apply_updates_statistics_and_cleans_extras():
+    f = DummyRejectFilter(use_batch=False)
+    docs = [Document("foo"), Document("bar")]
+    out = list(f.apply_stream(docs))
+    # 全部捨てられるのでテキストは元のまま、is_rejected=True
+    assert all(d.is_rejected for d in out)
+
+    stats = f.get_statistics().to_dict()
+    # 2 件入力、0 件出力、2 件破棄
+    assert stats["input_num"] == 2
+    assert stats["output_num"] == 0
+    assert stats["discard_num"] == 2
+    # diff_bytes は -(元バイト数の合計)
+    total_bytes = len("foo".encode()) + len("bar".encode())
+    assert stats["diff_bytes"] == -total_bytes
+    # extras に一時キーが残っていない
+    for d in out:
+        assert "__start_ns" not in d.extras
+        assert "__input_bytes" not in d.extras
+        assert "__input_chars" not in d.extras
+
+
+def test_stream_apply_in_batches_updates_statistics():
+    # use_batch=True でバッチ処理ルートを通す
+    f = DummyAppendFilter(use_batch=True, batch_size=2)
+    docs = [Document("A"), Document("BC"), Document("DEF")]
+    out = list(f.apply_stream(iter(docs)))
+    # 全件に "X" が追加されている
+    assert [d.text for d in out] == ["AX", "BCX", "DEFX"]
+
+    stats = f.get_statistics().to_dict()
+    # 3 件入力／出力、diff_bytes=3, diff_chars=3
+    assert stats["input_num"] == 3
+    assert stats["output_num"] == 3
+    assert stats["discard_num"] == 0
+    assert stats["diff_chars"] == 3
+    assert stats["diff_bytes"] == 3
