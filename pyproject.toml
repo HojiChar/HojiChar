@@ -3,7 +3,7 @@ name = "hojichar"
 dynamic = ["version"]
 description = "Text preprocessing management system."
 authors = [{ name = "kenta.shinzato", email = "hoppiece@gmail.com" }]
-requires-python = "~=3.9"
+requires-python = ">=3.9, <3.14"
 readme = "README.md"
 license = "Apache-2.0"
 dependencies = [
