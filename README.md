@@ -125,66 +125,141 @@ cleaner = Compose([
 
 The `p` argument passed to the `document_filters.AcceptJapanese` constructor determines the probability of applying the filter; with a probability of `1-p`, it acts as an identity function. This behavior is defined in the parent class `hojichar.Filter`.
 
+## Batch and Stream Processing with `apply_batch` and `apply_stream`
+
+The `Filter` and `Compose` classes support efficient batch and stream processing through the `apply_batch` and `apply_stream` methods.
+
+### `apply_batch`
+
+- The `apply_batch` method processes a list of `Document` objects in one go. By default, it applies the `apply` method to each document individually.
+- Users can override `apply_batch` in custom filters for optimized batch operations.
+
+    ```python
+    class YourBatchFilter(Filter):
+        def apply_batch(self, documents: Sequence[Document]) -> list[Document]:
+            # Implement your batch processing logic here
+            return documents
+    ```
+
+
+**Example Usage:**
+
+```python
+docs = [Document("text1"), Document("text2"), Document("text3")]
+results = cleaner.apply_batch(docs)
+
+for doc in results:
+    print(doc.text)
+```
+
+### `apply_stream`
+
+The `apply_stream` method processes an iterable (e.g., generator) of `Document` objects, ideal for large datasets or stream-based processing. If the `use_batch` flag is set to `True` in a `Filter`'s constructor, its apply_batch implementation will be utilized during stream processing.
+
+**Example Usage:**
+
+```python
+stream = (Document(f"text {i}") for i in range(10000))
+processed_stream = cleaner.apply_stream(stream)
+
+for doc in processed_stream:
+    print(doc.text)
+```
+
+This allows HojiChar to efficiently process massive corpora while maintaining low memory consumption.
+
 ## Additional Notes on Compose
 
 - Even though the behavior of a `Compose` object when called is a text-in, text-out function, `Compose` itself also inherits from the `Filter` class. Therefore, applying the `apply` method to a `Compose` object results in `hojihcar.Document` class being used as input and output.
 - `Compose` class behaves like a Filter. If you add a Compose object as one of the filters in the constructor of Compose, the filter will be unfolded recursively.
-- You can access various statistics regarding the processing performed by `Compose` through `Compose.statistics` or `Compose.statistics_obj`.
-  - `Compose.statistics` is a dictionary like above.
 
-    ```json
-    {
-    "total_info": {
-        "processed_num": 10928,
-        "discard_num": 5513,
-        "input_MB": 104.514584,
-        "output_MB": 25.33024,
-        "cumulative_time": 114.071047143,
-        "total_token_num": 0
-    },
-    "layers_info": [
-        {
-        "name": "0-JSONLoader",
-        "discard_num": 0,
-        "diff_MB": -1.9647932052612305,
-        "cumulative_time": 0.420034328,
-        "params": {
-            "name": "JSONLoader",
-            "p": 1,
-            "skip_rejected": true,
-            "key": "text",
-            "ignore": true
-        }
-        },
-        {
-        "name": "1-DocumentNormalizer",
-        "discard_num": 0,
-        "diff_MB": -1.5221118927001953,
-        "cumulative_time": 8.286988707,
-        "params": {
-            "name": "DocumentNormalizer",
-            "p": 1,
-            "skip_rejected": true
-        }
-        },
-        {
-        "name": "2-DocumentLengthFilter",
-        "discard_num": 344,
-        "diff_MB": -0.05566596984863281,
-        "cumulative_time": 0.093768306,
-        "params": {
-            "name": "DocumentLengthFilter",
-            "p": 1,
-            "skip_rejected": true,
-            "min_doc_len": 100,
-            "max_doc_len": null
-        }
-        },
-    ]
-    }
-    ```
+## Get Metrics of processing
 
-- `Compose.statistics_obj` is a `hojichar.StatsContainer` class. The `hojichar.StatsContainer` class stores the raw values of the statistics dictionary, and addition operations are defined to easily calculate the total statistics processed with the same filter. You can get the statistics dictionary by calling `Compose.statistics_obj.get_human_readable_values()`.
+HojiChar tracks detailed statistics at both the filter and pipeline levels, helping you monitor and debug your processing pipeline.
+
+Each `Filter` (including `Compose`) maintains a `Statistics` object containing information such as input size, output size, discarded document count, and processing time.
+
+**Example: Getting Statistics from a Compose Object**
+
+```python
+stats = cleaner.get_total_statistics_map()
+print(stats)
+```
+
+```python
+[{'cumulative_time_ns': 337250,
+  'diff_bytes': 10,
+  'diff_chars': 10,
+  'discard_num': 0,
+  'input_bytes': 45,
+  'input_chars': 23,
+  'input_num': 1,
+  'name': 'Total',
+  'output_bytes': 55,
+  'output_chars': 33,
+  'output_num': 1},
+ {'cumulative_time_ns': 80209,
+  'diff_bytes': -12,
+  'diff_chars': -12,
+  'discard_num': 0,
+  'input_bytes': 45,
+  'input_chars': 23,
+  'input_num': 1,
+  'name': '0-JSONLoader',
+  'output_bytes': 33,
+  'output_chars': 11,
+  'output_num': 1},
+ {'cumulative_time_ns': 17500,
+  'diff_bytes': 0,
+  'diff_chars': 0,
+  'discard_num': 0,
+  'input_bytes': 33,
+  'input_chars': 11,
+  'input_num': 1,
+  'name': '1-AcceptJapanese',
+  'output_bytes': 33,
+  'output_chars': 11,
+  'output_num': 1},
+ {'cumulative_time_ns': 8125,
+  'diff_bytes': 0,
+  'diff_chars': 0,
+  'discard_num': 0,
+  'input_bytes': 33,
+  'input_chars': 11,
+  'input_num': 1,
+  'name': '2-DocumentLengthFilter',
+  'output_bytes': 33,
+  'output_chars': 11,
+  'output_num': 1},
+ {'cumulative_time_ns': 6042,
+  'diff_bytes': 10,
+  'diff_chars': 10,
+  'discard_num': 0,
+  'input_bytes': 33,
+  'input_chars': 11,
+  'input_num': 1,
+  'name': '3-ExampleHojiChar',
+  'output_bytes': 43,
+  'output_chars': 21,
+  'output_num': 1},
+ {'cumulative_time_ns': 81125,
+  'diff_bytes': 12,
+  'diff_chars': 12,
+  'discard_num': 0,
+  'input_bytes': 43,
+  'input_chars': 21,
+  'input_num': 1,
+  'name': '4-JSONDumper',
+  'output_bytes': 55,
+  'output_chars': 33,
+  'output_num': 1}]
+```
+
+- Use `get_statistics()` to get the raw Statistics object for any filter.
+- Use `get_total_statistics()` to get a list of statistics for all filters in a Compose pipeline.
+- Use `get_total_statistics_map()` to retrieve the statistics as a list of dicts.
+
+These tools allow granular monitoring of how each filter contributes to data reduction, rejection, or transformation.
 
 ## Parallel application of `Compose`
 
