@@ -1,5 +1,5 @@
 import time
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass, field, fields
 from typing import Any, Dict, List, Mapping, Optional
 
 from hojichar.utils.warn_deprecation import deprecated_since
@@ -102,6 +102,12 @@ class Statistics:
     diff_bytes: int = 0
     diff_chars: int = 0
     cumulative_time_ns: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the Statistics object to a dictionary.
+        """
+        return {f.name: getattr(self, f.name) for f in fields(self)}
 
     def update(self, other: "Statistics") -> None:
         """

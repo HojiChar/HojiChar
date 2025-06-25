@@ -159,6 +159,9 @@ class Parallel:
         else:
             return []
 
+    def get_total_statistics_map(self) -> List[dict]:
+        return [stat.to_dict() for stat in self.get_total_statistics()]
+
     @property
     def statistics_obj(self) -> inspection.StatsContainer:
         """

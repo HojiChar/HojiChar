@@ -2,7 +2,7 @@ import json
 import logging
 import pprint
 from dataclasses import asdict
-from typing import Any, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
 
@@ -118,11 +118,21 @@ class Compose(Filter):
             yield doc
 
     def get_total_statistics(self) -> List[Statistics]:
+        """
+        Get the total statistics of the Compose object and sub filters.
+        """
         stats = []
         stats.append(self.get_statistics())
         for i, filt in enumerate(self.filters):
             stats.append(filt.get_statistics())
         return stats
+
+    def get_total_statistics_map(self) -> List[Dict[str, Any]]:
+        """
+        Get the total statistics of the Compose object and sub filters.
+        """
+        stats = self.get_total_statistics()
+        return [stat.to_dict() for stat in stats]
 
     def shutdown(self) -> None:
         for f in self.filters:

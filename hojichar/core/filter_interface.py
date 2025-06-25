@@ -238,6 +238,9 @@ class Filter(ABC):
         """
         return self._statistics
 
+    def get_statistics_map(self) -> Dict[str, Any]:
+        return self._statistics.to_dict()
+
     def shutdown(self) -> None:
         """
         This method is called when the filter is no longer needed.
