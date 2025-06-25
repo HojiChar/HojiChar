@@ -21,6 +21,26 @@ class Token:
 
 
 class Document:
+    """
+    Document class represents a text document with metadata.
+    It contains the text of the document, a flag indicating whether it is rejected,
+     and additional metadata stored in the `extras` dictionary.
+
+    The `tokens` attribute will be deprecated in future versions,
+    and users are encouraged to use the `extras` dictionary to store token-related information.
+
+    Attributes:
+        text (str): The text content of the document.
+        is_rejected (bool): A flag indicating whether the document is rejected.
+        extras (Dict[str, Any]): A dictionary to store additional metadata about the document.
+        reject_reason (Dict[str, Any]): A dictionary to store the reason for rejection. The
+          filter class and the member name and value will logged at the filter is logged here.
+
+    Next attributes will be deprecated in future versions:
+        dedup_lsh (List[str]): A list for deduplication using Locality Sensitive Hashing (LSH).
+        tokens (List[Token]): A list of tokens extracted from the document.
+    """
+
     def __init__(
         self,
         text: str,
@@ -33,6 +53,8 @@ class Document:
         self.is_rejected = is_rejected
         if tokens is None:
             self.tokens: List[Token] = []
+        else:
+            self.tokens = tokens
 
         if extras is None:
             self.extras: Dict[str, Any] = {}
@@ -64,32 +86,11 @@ class Document:
 
 
 @dataclass
-class DocInfo:
-    document: InitVar[
-        "Document"
-    ]  # this field is used to initialize the dataclass and not stored in the instance
-
-    is_rejected: bool = field(init=False)
-    bytes: int = field(init=False)
-    chars: int = field(init=False)
-    time_ns: int = field(init=False)
-
-    def __post_init__(self, document: "Document") -> None:
-        self.is_rejected = document.is_rejected
-        self.bytes = len(document.text.encode("utf-8"))
-        self.chars = len(document.text)
-        self.time_ns = time.perf_counter_ns()
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "DocInfo":
-        obj = object.__new__(cls)
-        for k in ("is_rejected", "bytes", "chars", "time_ns"):
-            setattr(obj, k, data[k])
-        return obj
-
-
-@dataclass
 class Statistics:
+    """
+    Statistics class to track the performance of the document processing pipeline.
+    """
+
     name: Optional[str] = None
     input_num: int = 0
     input_bytes: int = 0
@@ -103,6 +104,9 @@ class Statistics:
     cumulative_time_ns: int = 0
 
     def update(self, other: "Statistics") -> None:
+        """
+        Update the statistics by adding another Statistics object.
+        """
         self.input_num += other.input_num
         self.input_bytes += other.input_bytes
         self.input_chars += other.input_chars
@@ -115,6 +119,9 @@ class Statistics:
         self.cumulative_time_ns += other.cumulative_time_ns
 
     def reset(self) -> "Statistics":
+        """
+        Reset the statistics to their initial values.
+        """
         self.input_num = 0
         self.input_bytes = 0
         self.input_chars = 0
@@ -128,7 +135,12 @@ class Statistics:
         return self
 
     @staticmethod
-    def from_diff(before: "DocInfo", after: "DocInfo    ") -> "Statistics":
+    def from_diff(before: "DocInfo", after: "DocInfo") -> "Statistics":
+        """
+        Create a Statistics object from the differences between two DocInfo objects.
+        This method calculates the differences in input and output statistics.
+        If the document is rejected after the filter is applied, it will be counted as a discard.
+        """
         if not before.is_rejected and after.is_rejected:
             return Statistics(
                 input_num=1,
@@ -158,6 +170,10 @@ class Statistics:
 
     @staticmethod
     def add(x: "Statistics", y: "Statistics") -> "Statistics":
+        """
+        Add two Statistics objects together.
+        This method assumes that the names of the two Statistics objects match.
+        If they do not match, it will raise an AssertionError."""
         assert x.name == y.name, "Layer names must match"
         return Statistics(
             name=x.name,
@@ -207,3 +223,34 @@ class Statistics:
             if stat.name == name:
                 return stat
         raise KeyError(f"Statistics with name '{name}' not found in the list.")
+
+
+@dataclass
+class DocInfo:
+    """
+    Document information class.
+    This class is used to store metadata about a Document instance to track statistics.
+    Mainly used internal implementation of hojichar filters.
+    """
+
+    document: InitVar[
+        "Document"
+    ]  # this field is used to initialize the dataclass and not stored in the instance
+
+    is_rejected: bool = field(init=False)
+    bytes: int = field(init=False)
+    chars: int = field(init=False)
+    time_ns: int = field(init=False)
+
+    def __post_init__(self, document: Document) -> None:
+        self.is_rejected = document.is_rejected
+        self.bytes = len(document.text.encode("utf-8"))
+        self.chars = len(document.text)
+        self.time_ns = time.perf_counter_ns()
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "DocInfo":
+        obj = object.__new__(cls)
+        for k in ("is_rejected", "bytes", "chars", "time_ns"):
+            setattr(obj, k, data[k])
+        return obj
