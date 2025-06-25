@@ -8,7 +8,7 @@ from hojichar.core.models import Token
 class TokenAddDebagTag(TokenFilter):
     """トークン末尾にデバッグ用のタグを追加します."""
 
-    def apply(self, token: Token) -> Token:
+    def apply(self, token: Token) -> Token:  # type: ignore
         """
         >>> TokenAddDebagTag()("hello")
         'hello<sep>'
@@ -32,7 +32,7 @@ class SEOTokenRemover(TokenFilter):
             r"\-{5,},@[a-zA-Z0-9]+,[#\$\%\-]{4,},[＿=#\$\%\-]{4,}[\ ]*.+?[\ ]*[＿=#\$\%\-]{4,}|★[…━]+★"  # noqa
         )
 
-    def apply(self, token: Token) -> Token:
+    def apply(self, token: Token) -> Token:  # type: ignore
         seo_words = self.token_split_pat.split(token.text.strip())
         n_words = len(seo_words)
         if n_words == 0:

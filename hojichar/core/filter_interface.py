@@ -1,7 +1,11 @@
 import logging
-from typing import Any, Dict, Optional, Set
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Union
 
-from hojichar.core.models import Document, Token
+import numpy as np
+
+from hojichar.core.models import DocInfo, Document, Statistics, Token
+from hojichar.utils.warn_deprecation import deprecated_since
 
 
 def _is_jsonable(data: Any) -> bool:
@@ -9,69 +13,79 @@ def _is_jsonable(data: Any) -> bool:
         return True
     elif isinstance(data, (bool, int, float, str)):
         return True
-    """
-    elif isinstance(data, (tuple, list)):
-        return all(Filter._is_jsonable(x) for x in data)
-    elif isinstance(data, dict):
-        return all(isinstance(k, str) and Filter._is_jsonable(v) for k, v in data.items())
-    """
     return False
 
 
-class Filter:
+class Filter(ABC):
     """
     Base class for all filters.
     Document-level filters must inherit from this class.
 
-    The definition of filter function is in `apply` method.
-    If you define a new filter, you must define the method.
+    The definition of text processing is in `apply` method.
+    If you define a new filter, override the method.
+
     When this class is called, apply the filter from string to string.
 
-    If the filter create `Document.tokens` form `Document.text`, you
-    must implement `tokenize` method.
-    If the filter update `Document.text` by merging `Document.tokens`, you
-    must implement `merge` method.
-    Do not define a filter that changes both `Document.text` and `Document.token`
-    to prevent unexpected behavior.
+    With context manager, you can use the filter as follows:
+    ```python
+    with YourFilter(p=0.5) as filt:
+        text = filt("This is a sample text.")
+    ```
 
-    If you apply the filter to tokens, you can use `TokenFilter` class.
-
-    Parameters
-    ----------
-    p: float
-        The probability apply the filter organized by hojichar.Compose
-    skip_reject: bool
-        If set `True`, `hojichar.Compose` make this filter ignore the document
-        which has `is_rejected` flag.
-        This flag is `True` by default since processing discarded documents
-        in subsequent filters is meaningless. However, in some cases, docs that
-        have been rejected need another filter. For example, analyzing false-positive,
-        discarded docs must be passed to JSON Dump filters. In such case,
-        set the `skip_reject` flag as `False` and make it pass all docs.
     """
 
     def __init__(
-        self, p: float = 1, skip_rejected: bool = True, *args: Any, **kwargs: Any
+        self,
+        p: float = 1.0,
+        skip_rejected: bool = True,
+        *args: Any,
+        random_state: Optional[Union[int, np.random.Generator]] = None,
+        use_batch: bool = False,
+        batch_size: int = 128,
+        **kwargs: Any,
     ) -> None:
         """
+        Initialize the filter.
         Parameters
         ----------
-        p : float, optional
-            Probability that this filter will be applied. Default=1
+        p : float
+            The probability of applying the filter.
+            If `p` is 1, the filter will always be applied.
+        skip_rejected : bool
+            If `True`, the filter will skip documents that are already rejected.
+            If you want to apply the filter to all documents (e.g., postprocess), set this to `False`.
+        random_state : Optional[Union[int, np.random.Generator]]
+            Seed for the random number generator.
+            If `None`, a new random number generator will be created.
+            If `None`, and use in the `Compose` class, the random state is shared with the `Compose` object.
+        use_batch : bool
+            If `True`, the filter will process documents in batches in the `apply_stream` method.
+        batch_size : int
+            The size of the batch to process documents in the `apply_stream` method.
+        kwargs : Any
+            Additional keyword arguments to pass to the filter.
         """
         self.name = self.__class__.__name__
-        self.logger = logging.getLogger("hojichar.document_filters." + self.name)
+        self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
         assert 0 <= p <= 1
         self.p = p
+        self.__init_rng(random_state)
         self.skip_rejected = skip_rejected
+        self._use_batch = use_batch
+        self._batch_size = batch_size
 
+        self._statistics: Statistics = Statistics()
+
+    @abstractmethod
     def apply(self, document: Document) -> Document:
-        """Definition of filter behavior.
+        """
+        Definition of filter behavior.
 
-        In this method, the filter will modify `document.text`, or
-        set `document.is_rejected = True` to discard the document.
+        The document must have a protocol `TextContent`,
+        and mostly used hojichar.Document class.
 
-        Do not define a filter that changes both `document.text` and `document.token`
+        In this method, the filter will modify `document.text` or
+        `document.extras` and set `document.is_rejected = True` to discard the document.
 
         Parameters
         ----------
@@ -83,19 +97,171 @@ class Filter:
         Document
             Processed Document
         """
-        raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
-        return document
 
+    @deprecated_since(version="1.0.0", alternative="apply")
     def apply_filter(self, document: Document) -> Document:
         document = self.apply(document)
         return document
 
-    def __call__(self, text: str) -> str:
-        document = Document(text)
-        document = self.apply(document)
+    def _check_skip(self, document: Document) -> bool:
+        """
+        Check if the document should be skipped by this filter.
+        If `skip_rejected` is set to `True`, this method will return `True`
+        if the document is already rejected.
+        If `p` is less than 1, this method will return `True` with a probability of `1 - p`.
+        """
+        skip = self.skip_rejected and document.is_rejected
+        if skip:
+            return True
+        if self.p < 1:
+            if self._rng.random() > self.p:
+                return True
+        return False
+
+    def _apply(self, document: Document) -> Document:
+        """
+        Apply the filter to a single document.
+        This method
+          - checks if the document should be skipped
+          - counts and logging the statistics
+          - logging the reason for rejection if the document is rejected
+
+        This method may be used in `apply` method of `Compose` class.
+        """
+
+        stats = DocInfo(document=document)
+
+        if not self._check_skip(document):
+            document = self.apply(document)
+
+        new_stats = DocInfo(document=document)
+        diff_stats = Statistics.from_diff(
+            before=stats,
+            after=new_stats,
+        )
+        self._statistics.update(diff_stats)
+
+        if not stats.is_rejected and new_stats.is_rejected:
+            document.reject_reason = self.get_jsonable_vars()
+
+        return document
+
+    def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+        """
+        Apply the filter to a batch of documents.
+        You can override this method if you want to
+        apply the filter to a batch of documents at once.
+
+        This method may be used in `apply_batch` method of `Compose` class.
+
+        Parameters
+        ----------
+        documents : Sequence[Document]
+            List-like object of input documents
+
+        Returns
+        -------
+        list[Document]
+            List of processed documents
+        """
+        return [self.apply(document) for document in batch]
+
+    def _apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+        """
+        Apply the filter to a batch of documents.
+        This method
+        - checks if the documents should be skipped
+        - counts and logs the statistics
+        - logs the reason for rejection if any document is rejected
+        """
+        skip = False
+        if self.p < 1:
+            skip = self._rng.random() > self.p
+
+        stats = [DocInfo(document=doc) for doc in batch]
+        if not skip:
+            batch = self.apply_batch(batch)
+        batch = self._finalize_batch(batch, stats)
+        return batch
+
+    def apply_stream(self, stream: Iterable[Document]) -> Iterable[Document]:
+        """
+        Apply the filter to a stream of documents.
+        This method is used when you want to process documents one by one.
+        If `use_batch` is set to `True` in the constructor,
+        this method will process documents in batches using `apply_batch` method.
+
+        Parameters
+        ----------
+        stream : Iterable[Document]
+            Stream of input documents
+
+        Returns
+        -------
+        Iterable[Document]
+            Stream of processed documents
+        """
+
+        if not self._use_batch:
+            for document in stream:
+                yield self._apply(document)
+        else:
+            batch: list[Document] = []
+            for document in stream:
+                if self._check_skip(document):
+                    yield document
+                    continue
+
+                batch.append(document)
+                if len(batch) >= self._batch_size:
+                    stats = [DocInfo(doc) for doc in batch]
+                    batch = self.apply_batch(batch)
+                    batch = self._finalize_batch(batch, stats)
+                    yield from batch
+                    batch.clear()
+            if batch:
+                stats = [DocInfo(doc) for doc in batch]
+                batch = self.apply_batch(batch)
+                batch = self._finalize_batch(batch, stats)
+                yield from batch
+
+    def __call__(self, text: str, **kwargs: Any) -> str:
+        document = Document(text, **kwargs)
+        document = self._apply(document)
         return document.text
 
-    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
+    def get_statistics(self) -> Statistics:
+        """
+        Get the statistics of this filter.
+        This method returns the statistics of the filter,
+        which includes the number of processed documents, discarded documents, and other statistics.
+        """
+        return self._statistics
+
+    def get_statistics_map(self) -> Dict[str, Any]:
+        """
+        Get the statistics of this filter as a dictionary.
+        """
+        return self._statistics.to_dict()
+
+    def shutdown(self) -> None:
+        """
+        This method is called when the filter is no longer needed.
+        You can override this method to release resources or perform cleanup tasks.
+        """
+        pass
+
+    def __enter__(self) -> "Filter":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        """
+        This method is called when the filter is used in a context manager.
+        It calls the `shutdown` method to release resources or perform cleanup tasks.
+        """
+        self.shutdown()
+
+    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
@@ -109,8 +275,43 @@ class Filter:
             if (_is_jsonable(v) and (k not in exclude_keys) and (not k.startswith("_")))
         }
 
+    def _finalize_batch(
+        self: "Filter",
+        batch: Sequence[Document],
+        old_stats: List[DocInfo],
+    ) -> List[Document]:
+        new_stats = [DocInfo(doc) for doc in batch]
+        for old, new, doc in zip(old_stats, new_stats, batch):
+            diff = Statistics.from_diff(
+                before=old,
+                after=new,
+            )
+            self._statistics.update(diff)
+            if not old.is_rejected and new.is_rejected:
+                doc.reject_reason = self.get_jsonable_vars()
+        return list(batch)
 
-class TokenFilter:
+    def __init_rng(self, random_state: Optional[Union[int, np.random.Generator]]) -> None:
+        self._owns_rng = True
+        if random_state is None:
+            self._rng = np.random.default_rng()
+            self._owns_rng = False
+        elif isinstance(random_state, int):
+            self._rng = np.random.default_rng(random_state)
+        elif isinstance(random_state, np.random.Generator):
+            self._rng = random_state
+
+    def set_rng_if_not_initialized(self, rng: np.random.Generator) -> None:
+        """
+        Set the random number generator for this filter if it is not already initialized.
+        This method is called by Compose class.
+        """
+        if not self._owns_rng:
+            self._rng = rng
+
+
+@deprecated_since(version="1.0.0", alternative="Filter")
+class TokenFilter(Filter, ABC):
     """
     Base class for token-level filters.
 
@@ -127,7 +328,7 @@ class TokenFilter:
         self.p = p
         self.skip_rejected = skip_rejected
 
-    def apply(self, token: Token) -> Token:
+    def apply(self, token: Token) -> Token:  # type: ignore
         raise NotImplementedError(f"{self.__class__.__name__}.apply method is not defined")
         return token
 
@@ -135,17 +336,21 @@ class TokenFilter:
         document.tokens = [self.apply(token) for token in document.tokens if not token.is_rejected]
         return document
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str) -> str:  # type: ignore
         token = Token(text)
         token = self.apply(token)
         return token.text
 
-    def get_jsonable_vars(self) -> dict:
-        # Output key-values of member variables that can be obtained by var(self), except "logger".
-        exclude_keys = ["logger"]
-        return dict(filter(lambda item: item[0] not in exclude_keys, vars(self).items()))
+    def _apply(self, document: Document) -> Document:
+        """
+        Apply the token filter to a single document.
+        This method checks if the document should be skipped.
+        """
+        if self.skip_rejected and document.is_rejected:
+            return document
+        return self.apply_filter(document)
 
-    def get_jsonalbe_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
+    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
