@@ -11,6 +11,17 @@ dependencies = [
     "tqdm>=4.65.0,<5",
 ]
 
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+]
+
 [project.optional-dependencies]
 all = [
     "fugashi[unidic-lite]>=1.3.2,<2",
