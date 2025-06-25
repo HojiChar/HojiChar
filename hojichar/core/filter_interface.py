@@ -239,6 +239,9 @@ class Filter(ABC):
         return self._statistics
 
     def get_statistics_map(self) -> Dict[str, Any]:
+        """
+        Get the statistics of this filter as a dictionary.
+        """
         return self._statistics.to_dict()
 
     def shutdown(self) -> None:

@@ -260,3 +260,6 @@ class DocInfo:
         for k in ("is_rejected", "bytes", "chars", "time_ns"):
             setattr(obj, k, data[k])
         return obj
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {f.name: getattr(self, f.name) for f in fields(self)}

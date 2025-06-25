@@ -1,7 +1,6 @@
 import json
 import logging
 import pprint
-from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 import numpy as np
@@ -70,6 +69,10 @@ class Compose(Filter):
                 filter_idx += 1
 
     def __call__(self, text: str, **kwargs: Any) -> str:
+        """
+        Apply the composed filter to a text and return the processed text.
+        If the document is rejected, return an empty string.
+        """
         document = Document(text, **kwargs)
         document = self.apply(document)
         if document.is_rejected:
@@ -78,6 +81,9 @@ class Compose(Filter):
             return document.text
 
     def apply(self, document: Document) -> Document:
+        """
+        Apply the composed filter to a document and return the processed document.
+        """
         stat = DocInfo(document)
         for i, filt in enumerate(self.filters):
             document = filt._apply(document)
@@ -87,6 +93,11 @@ class Compose(Filter):
         return document
 
     def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+        """
+        Apply the composed filter to a batch of documents and return the processed documents.
+        The `apply_batch` method implemented in sub-filters is called in order.
+        """
+
         stats = [DocInfo(doc) for doc in batch]
         for i, filt in enumerate(self.filters):
             batch = filt._apply_batch(batch)
@@ -94,6 +105,15 @@ class Compose(Filter):
         return list(batch)
 
     def apply_stream(self, stream: Iterable[Document]) -> Iterable[Document]:
+        """
+        Apply the composed filter to a stream of documents and return the processed documents.
+        The `apply_stream` method implemented in sub-filters is called in order.
+
+
+        In a sub-filter, if `apply_batch` is overridden and implemented, you need to set `use_batch`
+        to True at that filter to utilize that implementation. Otherwise, the
+        method implemented in `apply` will be applied to the stream.
+        """
         stream = self._count_input_stats(stream)
         for i, filt in enumerate(self.filters):
             stream = filt.apply_stream(stream)
@@ -109,17 +129,17 @@ class Compose(Filter):
             yield doc
 
     def _count_input_stats(self, stream: Iterable[Document]) -> Iterable[Document]:
-        """
-        Count the statistics of the input documents.
-        """
         for doc in stream:
             stat = DocInfo(doc)
-            doc.extras["__init_stats"] = asdict(stat)
+            doc.extras["__init_stats"] = stat.to_dict()
             yield doc
 
     def get_total_statistics(self) -> List[Statistics]:
         """
-        Get the total statistics of the Compose object and sub filters.
+        Get the statistics of the Compose object and sub filters.
+
+        The statistics of the Compose class are stored in an object with the name "Total",
+        and sub-filters's are stored with names in the format {filter_index}-{filter class name}.
         """
         stats = []
         stats.append(self.get_statistics())
@@ -129,7 +149,7 @@ class Compose(Filter):
 
     def get_total_statistics_map(self) -> List[Dict[str, Any]]:
         """
-        Get the total statistics of the Compose object and sub filters.
+        Get the statistics of the Compose object and sub filters as a list of dictionaries.
         """
         stats = self.get_total_statistics()
         return [stat.to_dict() for stat in stats]
@@ -142,6 +162,14 @@ class Compose(Filter):
 
     @property
     def statistics(self) -> dict:
+        """
+        Deprecated
+
+        Get the statistics of the Compose object and sub filters.
+
+        This property is retained for compatibility with previous versions.
+        Please use `get_total_statistics` or `get_total_statistics_map` instead.
+        """
         return inspection.statistics_obj_adapter(  # type: ignore
             self.get_total_statistics()
         ).get_human_readable_values()
@@ -149,9 +177,14 @@ class Compose(Filter):
     @property
     def statistics_obj(self) -> inspection.StatsContainer:
         """
+        Deprecated
+
         Get the statistics of the Compose object and sub filters.
         This method returns a StatsContainer object which contains the statistics
         of the Compose object and sub filters.
+
+        This property is retained for compatibility with previous versions.
+        Please use `get_total_statistics` or `get_total_statistics_map` instead.
         """
         return inspection.statistics_obj_adapter(self.get_total_statistics())  # type: ignore
 
