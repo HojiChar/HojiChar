@@ -148,6 +148,11 @@ class AsyncFilter(ABC):
         Apply the filter to a stream of documents (Iterable or AsyncIterable).
         If use_batch is set to `True` at initialization, the filter will process documents in batches.
         If the stream is not asynchronous, use handle_stream_as_async to convert it to an asynchronous stream.
+
+        Even if an exception occurs during processing, the process will continue, and the following actions will be taken:
+        - Set the `is_rejected` flag of the document to `True`
+        - Set the error details in `reject_reason`
+        - Increment the `errors` count in the statistics retrievable via `get_statistics`
         """
         async_stream: AsyncIterable[Document] = handle_stream_as_async(stream)
 
