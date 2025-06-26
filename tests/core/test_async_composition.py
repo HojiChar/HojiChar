@@ -1,4 +1,5 @@
-# type: ignore
+from __future__ import annotations
+
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
