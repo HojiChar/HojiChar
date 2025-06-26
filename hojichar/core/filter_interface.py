@@ -71,8 +71,8 @@ class Filter(ABC):
         self.p = p
         self.__init_rng(random_state)
         self.skip_rejected = skip_rejected
-        self._use_batch = use_batch
-        self._batch_size = batch_size
+        self.use_batch = use_batch
+        self.batch_size = batch_size
 
         self._statistics: Statistics = Statistics()
 
@@ -202,7 +202,7 @@ class Filter(ABC):
             Stream of processed documents
         """
 
-        if not self._use_batch:
+        if not self.use_batch:
             for document in stream:
                 yield self._apply(document)
         else:
@@ -213,7 +213,7 @@ class Filter(ABC):
                     continue
 
                 batch.append(document)
-                if len(batch) >= self._batch_size:
+                if len(batch) >= self.batch_size:
                     stats = [DocInfo(doc) for doc in batch]
                     batch = self.apply_batch(batch)
                     batch = self._finalize_batch(batch, stats)
@@ -301,7 +301,7 @@ class Filter(ABC):
         elif isinstance(random_state, np.random.Generator):
             self._rng = random_state
 
-    def set_rng_if_not_initialized(self, rng: np.random.Generator) -> None:
+    def _set_rng_if_not_initialized(self, rng: np.random.Generator) -> None:
         """
         Set the random number generator for this filter if it is not already initialized.
         This method is called by Compose class.

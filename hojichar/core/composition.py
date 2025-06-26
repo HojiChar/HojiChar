@@ -54,14 +54,14 @@ class Compose(Filter):
         for f in filters:
             if isinstance(f, Compose):
                 for sub in f.filters:
-                    sub.set_rng_if_not_initialized(self._rng)
+                    sub._set_rng_if_not_initialized(self._rng)
                     name = f"{filter_idx}-{sub.__class__.__name__}"
                     sub.name = name
                     sub._statistics.name = name
                     self.filters.append(sub)
                     filter_idx += 1
             else:
-                f.set_rng_if_not_initialized(self._rng)
+                f._set_rng_if_not_initialized(self._rng)
                 name = f"{filter_idx}-{f.__class__.__name__}"
                 f.name = name
                 f._statistics.name = name
