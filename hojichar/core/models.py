@@ -102,6 +102,7 @@ class Statistics:
     diff_bytes: int = 0
     diff_chars: int = 0
     cumulative_time_ns: int = 0
+    errors: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -123,6 +124,7 @@ class Statistics:
         self.diff_bytes += other.diff_bytes
         self.diff_chars += other.diff_chars
         self.cumulative_time_ns += other.cumulative_time_ns
+        self.errors += other.errors
 
     def reset(self) -> "Statistics":
         """
@@ -138,6 +140,7 @@ class Statistics:
         self.diff_bytes = 0
         self.diff_chars = 0
         self.cumulative_time_ns = 0
+        self.errors = 0
         return self
 
     @staticmethod
@@ -193,6 +196,7 @@ class Statistics:
             diff_bytes=x.diff_bytes + y.diff_bytes,
             diff_chars=x.diff_chars + y.diff_chars,
             cumulative_time_ns=x.cumulative_time_ns + y.cumulative_time_ns,
+            errors=x.errors + y.errors,
         )
 
     @staticmethod
