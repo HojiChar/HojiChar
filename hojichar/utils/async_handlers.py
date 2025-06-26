@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import itertools
 from pathlib import Path
-from typing import AsyncGenerator, Iterable, TypeVar
+from typing import AsyncGenerator, AsyncIterable, Iterable, TypeVar
 
 T = TypeVar("T")
 
 
 def handle_stream_as_async(
-    source_stream: Iterable[T],
+    source_stream: Iterable[T] | AsyncIterable[T],
     chunk_size: int = 1000,
 ) -> AsyncGenerator[T, None]:
     """
@@ -20,14 +20,13 @@ def handle_stream_as_async(
         source_stream (Iterable[T]): The synchronous iterable to convert.
         chunk_size (int): The number of items to yield at a time.
     """
+    if isinstance(source_stream, AsyncIterable):
+        return source_stream  # type: ignore[return-value]
     stream = iter(source_stream)
 
     async def sync_to_async() -> AsyncGenerator[T, None]:
-        loop = asyncio.get_running_loop()
         while True:
-            chunk = await loop.run_in_executor(
-                None, lambda: list(itertools.islice(stream, chunk_size))
-            )
+            chunk = await asyncio.to_thread(lambda: list(itertools.islice(stream, chunk_size)))
             if not chunk:
                 break
             for item in chunk:

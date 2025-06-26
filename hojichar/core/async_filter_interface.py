@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, AsyncIterable, Iterable, Sequence
 
 import numpy as np
 
-from hojichar.core.models import Document
+from hojichar.core.models import DocInfo, Document, Statistics
 from hojichar.utils.async_handlers import handle_stream_as_async
+
+
+def _is_jsonable(data: Any) -> bool:
+    if data is None:
+        return True
+    elif isinstance(data, (bool, int, float, str)):
+        return True
+    return False
 
 
 class AsyncFilter(ABC):
@@ -22,24 +31,40 @@ class AsyncFilter(ABC):
         **kwargs: Any,
     ):
         """
-        非同期フィルターの基底クラス
+        Base class for asynchronous filters.
 
-        :param p: フィルター適用確率 (デフォルトは 1.0)
-        :param skip_rejected: True のとき、 Document.is_rejected が True であれば処理をスキップする. JSONDumper などの全テキストに
-        適用するべき後処理の場合は False にする
+        Parameters
+        ----------
+        p : float
+            The probability of applying the filter.
+            If `p` is 1, the filter will always be applied.
+        skip_rejected : bool
+            If `True`, the filter will skip documents that are already rejected.
+            If you want to apply the filter to all documents (e.g., postprocess), set this to `False`.
+        random_state : Optional[Union[int, np.random.Generator]]
+            Seed for the random number generator.
+            If `None` is specified, the random number generator managed by the Compose class will be used.
+        use_batch : bool
+            If `True`, the filter will process documents in batches in the `apply_stream` method.
+        batch_size : int
+            The size of the batch to process documents in the `apply_stream` method.
         """
         self.name = self.__class__.__name__
+        self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
         assert 0 <= p <= 1
         self.p = p
         self.__init_rng(random_state)
         self.skip_rejected = skip_rejected
-        self._use_batch = use_batch
-        self._batch_size = batch_size
+        self.use_batch = use_batch
+        self.batch_size = batch_size
+
+        self._statistics = Statistics(name=self.name)
+        self._stats_lock = asyncio.Lock()
 
     @abstractmethod
     async def apply(self, document: Document) -> Document:
         """
-        Definition of filter behavior.
+        Definition of async filter behavior.
 
         In this method, the filter will modify `document.text` or
         `document.extras` and set `document.is_rejected = True` to discard the document.
@@ -72,27 +97,44 @@ class AsyncFilter(ABC):
         return False
 
     async def _apply(self, document: Document) -> Document:
-        if self._check_skip(document):
-            return document
-        return await self.apply(document)
+        stats = DocInfo(document)
+        if not self._check_skip(document):
+            try:
+                document = await self.apply(document)
+            except Exception as e:
+                msg = f"{e!r} occurred while applying filter {self.name} to document: {document!r}"
+                self.logger.error(msg, exc_info=True)
+                document.is_rejected = True
+                document.reject_reason = {"error": msg}
+        new_stats = DocInfo(document)
+        diff_stats = Statistics.from_diff(stats, new_stats)
+        async with self._stats_lock:
+            self._statistics.update(diff_stats)
+
+        if not stats.is_rejected and new_stats.is_rejected:
+            document.reject_reason = self.get_jsonable_vars()
+        return document
 
     async def apply_batch(self, batch: Sequence[Document]) -> list[Document]:
         """
-        ドキュメントのSequenceに対してフィルターを適用する
-        デフォルトでは apply に実装した処理を非同期に同時実行する。
-        フィルタ処理がバッチ処理が可能な場合はオーバーライドして効率化できる
+        Apply the filter to a Sequence of documents.
+        By default, the processing implemented in `apply` is executed asynchronously and concurrently.
+        If the filter processing can be optimized for batch processing, override this method.
         """
         tasks = [self._apply(doc) for doc in batch]
         return await asyncio.gather(*tasks)
 
     async def _apply_batch(self, batch: Sequence[Document]) -> list[Document]:
-        skip = False
-        if self.p < 1:
-            skip = self._rng.random() > self.p
-
-        if not skip:
+        stats = [DocInfo(doc) for doc in batch]
+        try:
             batch = await self.apply_batch(batch)
-
+        except Exception as e:
+            msg = f"{e!r} occurred while applying filter {self.name} to batch of documents."
+            self.logger.error(msg, exc_info=True)
+            for doc in batch:
+                doc.is_rejected = True
+                doc.reject_reason = {"error": msg}
+        batch = await self._finalize_batch(batch, stats)
         return list(batch)
 
     async def apply_stream(
@@ -100,16 +142,13 @@ class AsyncFilter(ABC):
         stream: Iterable[Document] | AsyncIterable[Document],
     ) -> AsyncGenerator[Document, None]:
         """
-        ドキュメントのストリーム(Iterable)に対してフィルターを適用する
-        ドキュメントをバッチサイズごとにバッファリングし、apply_batch を呼び出す。
-        ストリームが非同期でない場合は、handle_stream_as_async を使って非同期ストリームに変換する。
+        Apply the filter to a stream of documents (Iterable or AsyncIterable).
+        If use_batch is set to `True` at initialization, the filter will process documents in batches.
+        If the stream is not asynchronous, use handle_stream_as_async to convert it to an asynchronous stream.
         """
-        if isinstance(stream, AsyncIterable):
-            async_stream = stream
-        else:
-            async_stream = handle_stream_as_async(stream, self._batch_size)
+        async_stream: AsyncIterable[Document] = handle_stream_as_async(stream)
 
-        if not self._use_batch:
+        if not self.use_batch:
             async for doc in async_stream:
                 yield await self._apply(doc)
         else:
@@ -121,24 +160,82 @@ class AsyncFilter(ABC):
 
                 batch.append(doc)
                 # Batch size reached, apply batch
-                if len(batch) >= self._batch_size:
-                    outputs: list[Document] = await self.apply_batch(batch)
-                    for out in outputs:
+                if len(batch) >= self.batch_size:
+                    stats = [DocInfo(doc) for doc in batch]
+                    batch = await self._apply_batch(batch)
+                    batch = await self._finalize_batch(batch, stats)
+                    for out in batch:
                         yield out
                     batch.clear()
 
             # Flush remaining documents in the batch
             if batch:
-                outputs = await self.apply_batch(batch)
-                for out in outputs:
+                stats = [DocInfo(doc) for doc in batch]
+                batch = await self._apply_batch(batch)
+                batch = await self._finalize_batch(batch, stats)
+                for out in batch:
                     yield out
 
     async def __call__(self, text: str) -> str:
         document = Document(text=text)
         return (await self._apply(document)).text
 
+    def get_statistics(self) -> Statistics:
+        """
+        Get the statistics of this filter.
+        Returns:
+            Statistics: The statistics of this filter.
+        """
+        return self._statistics
+
+    def get_statistics_map(self) -> dict[str, Statistics]:
+        """
+        Get the statistics of this filter as a dictionary.
+        """
+        return self._statistics.to_dict()
+
     def shutdown(self) -> None:
+        """
+        You can override this method to release resources or perform cleanup tasks.
+        """
         pass
+
+    def __enter__(self) -> "AsyncFilter":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        self.shutdown()
+
+    def get_jsonable_vars(self, exclude_keys: set[str] | None = None) -> dict[str, Any]:
+        """
+        Get the member variable of this filter.
+        Eligible variables are primitive types; [bool, int, float, str, None],
+        and the name of the variable not starts with the underscore; `_`.
+        """
+        if exclude_keys is None:
+            exclude_keys = set()
+        return {
+            k: v
+            for k, v in vars(self).items()
+            if (_is_jsonable(v) and (k not in exclude_keys) and (not k.startswith("_")))
+        }
+
+    async def _finalize_batch(
+        self,
+        batch: Sequence[Document],
+        old_stats: list[DocInfo],
+    ) -> list[Document]:
+        new_stats = [DocInfo(doc) for doc in batch]
+        for old, new, doc in zip(old_stats, new_stats, batch):
+            diff = Statistics.from_diff(
+                before=old,
+                after=new,
+            )
+            async with self._stats_lock:
+                self._statistics.update(diff)
+            if not old.is_rejected and new.is_rejected:
+                doc.reject_reason = self.get_jsonable_vars()
+        return list(batch)
 
     def __init_rng(self, random_state: int | np.random.Generator | None) -> None:
         self._owns_rng = True
@@ -149,3 +246,15 @@ class AsyncFilter(ABC):
             self._rng = np.random.default_rng(random_state)
         elif isinstance(random_state, np.random.Generator):
             self._rng = random_state
+        else:
+            raise TypeError(
+                f"random_state must be int or np.random.Generator, not {type(random_state)}"
+            )
+
+    def _set_rng_if_not_initialized(self, rng: np.random.Generator) -> None:
+        """
+        Set the random number generator for this filter if it is not already initialized.
+        This method is called by Compose class.
+        """
+        if not self._owns_rng:
+            self._rng = rng
