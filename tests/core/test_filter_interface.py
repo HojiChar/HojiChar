@@ -97,8 +97,8 @@ def test_shared_rng_instance_and_state_via_stub():
     f2 = DummyFilter(p=0.5, random_state=None)
 
     # 両フィルタに同じスタブをセット
-    f1.set_rng_if_not_initialized(stub)
-    f2.set_rng_if_not_initialized(stub)
+    f1._set_rng_if_not_initialized(stub)
+    f2._set_rng_if_not_initialized(stub)
 
     # identity が同じこと
     assert f1._rng is stub
