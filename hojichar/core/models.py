@@ -143,39 +143,35 @@ class Statistics:
         self.errors = 0
         return self
 
-    @staticmethod
-    def from_diff(before: "DocInfo", after: "DocInfo") -> "Statistics":
+    def update_by_diff(
+        self,
+        before: dict[str, Any],
+        after: dict[str, Any],
+    ) -> None:
         """
-        Create a Statistics object from the differences between two DocInfo objects.
-        This method calculates the differences in input and output statistics.
-        If the document is rejected after the filter is applied, it will be counted as a discard.
+        Update the statistics by calculating the differences between two Doc-info mappings.
+        This method is used to update the statistics after a filter is applied.
         """
-        if not before.is_rejected and after.is_rejected:
-            return Statistics(
-                input_num=1,
-                input_bytes=before.bytes,
-                input_chars=before.chars,
-                output_num=0,
-                output_bytes=0,
-                output_chars=0,
-                discard_num=1,
-                diff_bytes=-before.bytes,
-                diff_chars=-before.chars,
-                cumulative_time_ns=after.time_ns - before.time_ns,
-            )
+        if not before["is_rejected"] and after["is_rejected"]:
+            # Document is rejected after the filter is applied
+            self.input_num += 1
+            self.input_bytes += before["bytes"]
+            self.input_chars += before["chars"]
+            self.discard_num += 1
+            self.diff_bytes -= before["bytes"]
+            self.diff_chars -= before["chars"]
+            self.cumulative_time_ns += after["time_ns"] - before["time_ns"]
         else:
-            return Statistics(
-                input_num=1,
-                input_bytes=before.bytes,
-                input_chars=before.chars,
-                output_num=1,
-                output_bytes=after.bytes,
-                output_chars=after.chars,
-                discard_num=0,
-                diff_bytes=after.bytes - before.bytes,
-                diff_chars=after.chars - before.chars,
-                cumulative_time_ns=after.time_ns - before.time_ns,
-            )
+            # Document is not rejected or still not rejected after the filter is applied
+            self.input_num += 1
+            self.input_bytes += before["bytes"]
+            self.input_chars += before["chars"]
+            self.output_num += 1
+            self.output_bytes += after["bytes"]
+            self.output_chars += after["chars"]
+            self.diff_bytes += after["bytes"] - before["bytes"]
+            self.diff_chars += after["chars"] - before["chars"]
+            self.cumulative_time_ns += after["time_ns"] - before["time_ns"]
 
     @staticmethod
     def add(x: "Statistics", y: "Statistics") -> "Statistics":
@@ -235,35 +231,14 @@ class Statistics:
         raise KeyError(f"Statistics with name '{name}' not found in the list.")
 
 
-@dataclass
-class DocInfo:
+def get_doc_info(document: Document) -> dict[str, Any]:
     """
-    Document information class.
-    This class is used to store metadata about a Document instance to track statistics.
-    Mainly used internal implementation of hojichar filters.
+    Create a document-info mapping from a Document instance.
+    This function is used to extract metadata from the Document for statistics tracking.
     """
-
-    document: InitVar[
-        "Document"
-    ]  # this field is used to initialize the dataclass and not stored in the instance
-
-    is_rejected: bool = field(init=False)
-    bytes: int = field(init=False)
-    chars: int = field(init=False)
-    time_ns: int = field(init=False)
-
-    def __post_init__(self, document: Document) -> None:
-        self.is_rejected = document.is_rejected
-        self.bytes = len(document.text.encode("utf-8"))
-        self.chars = len(document.text)
-        self.time_ns = time.perf_counter_ns()
-
-    @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "DocInfo":
-        obj = object.__new__(cls)
-        for k in ("is_rejected", "bytes", "chars", "time_ns"):
-            setattr(obj, k, data[k])
-        return obj
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {f.name: getattr(self, f.name) for f in fields(self)}
+    return {
+        "is_rejected": document.is_rejected,
+        "bytes": len(document.text.encode("utf-8")),
+        "chars": len(document.text),
+        "time_ns": time.perf_counter_ns(),
+    }

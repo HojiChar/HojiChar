@@ -7,7 +7,7 @@ import numpy as np
 
 from hojichar.core import inspection
 from hojichar.core.filter_interface import Filter, TokenFilter
-from hojichar.core.models import DocInfo, Document, Statistics
+from hojichar.core.models import Document, Statistics, get_doc_info
 from hojichar.utils.warn_deprecation import deprecated_since
 
 
@@ -84,12 +84,11 @@ class Compose(Filter):
         """
         Apply the composed filter to a document and return the processed document.
         """
-        stat = DocInfo(document)
+        stat = get_doc_info(document)
         for i, filt in enumerate(self.filters):
             document = filt._apply(document)
-        new_stat = DocInfo(document)
-        diff_stat = Statistics.from_diff(stat, new_stat)
-        self._statistics.update(diff_stat)
+        new_stat = get_doc_info(document)
+        self._statistics.update_by_diff(stat, new_stat)
         return document
 
     def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
@@ -98,7 +97,7 @@ class Compose(Filter):
         The `apply_batch` method implemented in sub-filters is called in order.
         """
 
-        stats = [DocInfo(doc) for doc in batch]
+        stats = [get_doc_info(doc) for doc in batch]
         for i, filt in enumerate(self.filters):
             batch = filt._apply_batch(batch)
         batch = self._finalize_batch(batch, stats)
@@ -119,18 +118,16 @@ class Compose(Filter):
             stream = filt.apply_stream(stream)
 
         for doc in stream:
-            in_stat = DocInfo.from_dict(doc.extras["__init_stats"])
-            out_stat = DocInfo(doc)
+            in_stat = doc.extras["__init_stats"]
+            out_stat = get_doc_info(doc)
 
-            diff_stat = Statistics.from_diff(in_stat, out_stat)
-            self._statistics.update(diff_stat)
+            self._statistics.update_by_diff(in_stat, out_stat)
             del doc.extras["__init_stats"]
             yield doc
 
     def _count_input_stats(self, stream: Iterable[Document]) -> Iterable[Document]:
         for doc in stream:
-            stat = DocInfo(doc)
-            doc.extras["__init_stats"] = stat.to_dict()
+            doc.extras["__init_stats"] = get_doc_info(doc)
             yield doc
 
     def get_total_statistics(self) -> List[Statistics]:
