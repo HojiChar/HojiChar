@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set,
 
 import numpy as np
 
-from hojichar.core.models import DocInfo, Document, Statistics, Token
+from hojichar.core.models import Document, Statistics, Token, get_doc_info
 from hojichar.utils.warn_deprecation import deprecated_since
 
 T = TypeVar("T")
@@ -131,19 +131,15 @@ class Filter(ABC):
         This method may be used in `apply` method of `Compose` class.
         """
 
-        stats = DocInfo(document=document)
+        stats = get_doc_info(document)
 
         if not self._check_skip(document):
             document = self.apply(document)
 
-        new_stats = DocInfo(document=document)
-        diff_stats = Statistics.from_diff(
-            before=stats,
-            after=new_stats,
-        )
-        self._statistics.update(diff_stats)
+        new_stats = get_doc_info(document)
+        self._statistics.update_by_diff(stats, new_stats)
 
-        if not stats.is_rejected and new_stats.is_rejected:
+        if not stats["is_rejected"] and new_stats["is_rejected"]:
             document.reject_reason = self.get_jsonable_vars()
 
         return document
@@ -180,7 +176,7 @@ class Filter(ABC):
         if self.p < 1:
             skip = self._rng.random() > self.p
 
-        stats = [DocInfo(document=doc) for doc in batch]
+        stats = [get_doc_info(document=doc) for doc in batch]
         if not skip:
             batch = self.apply_batch(batch)
         batch = self._finalize_batch(batch, stats)
@@ -221,13 +217,13 @@ class Filter(ABC):
 
                 batch.append(document)
                 if len(batch) >= self.batch_size:
-                    stats = [DocInfo(doc) for doc in batch]
+                    stats = [get_doc_info(doc) for doc in batch]
                     batch = self._try_process(batch, self.apply_batch)
                     batch = self._finalize_batch(batch, stats)
                     yield from batch
                     batch.clear()
             if batch:
-                stats = [DocInfo(doc) for doc in batch]
+                stats = [get_doc_info(doc) for doc in batch]
                 batch = self._try_process(batch, self.apply_batch)
                 batch = self._finalize_batch(batch, stats)
                 yield from batch
@@ -307,16 +303,12 @@ class Filter(ABC):
     def _finalize_batch(
         self: "Filter",
         batch: Sequence[Document],
-        old_stats: List[DocInfo],
+        old_stats: List[Dict[str, Any]] = [],
     ) -> List[Document]:
-        new_stats = [DocInfo(doc) for doc in batch]
+        new_stats = [get_doc_info(doc) for doc in batch]
         for old, new, doc in zip(old_stats, new_stats, batch):
-            diff = Statistics.from_diff(
-                before=old,
-                after=new,
-            )
-            self._statistics.update(diff)
-            if not old.is_rejected and new.is_rejected:
+            self._statistics.update_by_diff(old, new)
+            if not old["is_rejected"] and new["is_rejected"]:
                 doc.reject_reason = self.get_jsonable_vars()
         return list(batch)
 

@@ -16,7 +16,7 @@ from typing import (
 
 import numpy as np
 
-from hojichar.core.models import DocInfo, Document, Statistics
+from hojichar.core.models import Document, Statistics, get_doc_info
 from hojichar.utils.async_handlers import handle_stream_as_async
 
 T = TypeVar("T")
@@ -108,15 +108,14 @@ class AsyncFilter(ABC):
         return False
 
     async def _apply(self, document: Document) -> Document:
-        stats = DocInfo(document)
+        stats = get_doc_info(document)
         if not self._check_skip(document):
             document = await self.apply(document)
-        new_stats = DocInfo(document)
-        diff_stats = Statistics.from_diff(stats, new_stats)
+        new_stats = get_doc_info(document)
         async with self._stats_lock:
-            self._statistics.update(diff_stats)
+            self._statistics.update_by_diff(stats, new_stats)
 
-        if not stats.is_rejected and new_stats.is_rejected:
+        if not stats["is_rejected"] and new_stats["is_rejected"]:
             document.reject_reason = self.get_jsonable_vars()
         return document
 
@@ -134,7 +133,7 @@ class AsyncFilter(ABC):
         if self.p < 1:
             skip = self._rng.random() > self.p
 
-        stats = [DocInfo(doc) for doc in batch]
+        stats = [get_doc_info(doc) for doc in batch]
         if not skip:
             batch = await self.apply_batch(batch)
         batch = await self._finalize_batch(batch, stats)
@@ -169,7 +168,7 @@ class AsyncFilter(ABC):
                 batch.append(doc)
                 # Batch size reached, apply batch
                 if len(batch) >= self.batch_size:
-                    stats = [DocInfo(doc) for doc in batch]
+                    stats = [get_doc_info(doc) for doc in batch]
                     batch = await self._try_process(batch, self.apply_batch)
                     batch = await self._finalize_batch(batch, stats)
                     for out in batch:
@@ -178,7 +177,7 @@ class AsyncFilter(ABC):
 
             # Flush remaining documents in the batch
             if batch:
-                stats = [DocInfo(doc) for doc in batch]
+                stats = [get_doc_info(doc) for doc in batch]
                 batch = await self._try_process(batch, self.apply_batch)
                 batch = await self._finalize_batch(batch, stats)
                 for out in batch:
@@ -254,17 +253,13 @@ class AsyncFilter(ABC):
     async def _finalize_batch(
         self,
         batch: Sequence[Document],
-        old_stats: list[DocInfo],
+        old_stats: list[dict[str, Any]],
     ) -> list[Document]:
-        new_stats = [DocInfo(doc) for doc in batch]
+        new_stats = [get_doc_info(doc) for doc in batch]
         for old, new, doc in zip(old_stats, new_stats, batch):
-            diff = Statistics.from_diff(
-                before=old,
-                after=new,
-            )
             async with self._stats_lock:
-                self._statistics.update(diff)
-            if not old.is_rejected and new.is_rejected:
+                self._statistics.update_by_diff(old, new)
+            if not old["is_rejected"] and new["is_rejected"]:
                 doc.reject_reason = self.get_jsonable_vars()
         return list(batch)
 

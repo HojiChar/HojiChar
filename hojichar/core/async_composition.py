@@ -10,7 +10,7 @@ import numpy as np
 from hojichar.core.async_filter_interface import AsyncFilter
 from hojichar.core.composition import Compose
 from hojichar.core.filter_interface import Filter
-from hojichar.core.models import DocInfo, Document, Statistics
+from hojichar.core.models import Document, Statistics, get_doc_info
 from hojichar.utils.async_handlers import handle_stream_as_async
 
 
@@ -117,17 +117,16 @@ class AsyncCompose(AsyncFilter):
                 filter_idx += 1
 
     async def apply(self, document: Document) -> Document:
-        stat = DocInfo(document)
+        stat = get_doc_info(document)
         for filter_idx, filt in enumerate(self.filters):
             document = await filt._apply(document)
-        new_stat = DocInfo(document)
-        diff_stat = Statistics.from_diff(stat, new_stat)
+        new_stat = get_doc_info(document)
         async with self._stats_lock:
-            self._statistics.update(diff_stat)
+            self._statistics.update_by_diff(stat, new_stat)
         return document
 
     async def apply_batch(self, batch: Sequence[Document]) -> list[Document]:
-        stats = [DocInfo(doc) for doc in batch]
+        stats = [get_doc_info(doc) for doc in batch]
         for i, filt in enumerate(self.filters):
             batch = await filt._apply_batch(batch)
         batch = await self._finalize_batch(batch, stats)
@@ -144,11 +143,10 @@ class AsyncCompose(AsyncFilter):
             async_stream = filt.apply_stream(async_stream)
 
         async for doc in async_stream:
-            in_stat = DocInfo.from_dict(doc.extras["__init_stats"])
-            out_stat = DocInfo(doc)
-            diff_stat = Statistics.from_diff(in_stat, out_stat)
+            in_stat = doc.extras["__init_stats"]
+            out_stat = get_doc_info(doc)
             async with self._stats_lock:
-                self._statistics.update(diff_stat)
+                self._statistics.update_by_diff(in_stat, out_stat)
             del doc.extras["__init_stats"]
             yield doc
 
@@ -156,8 +154,7 @@ class AsyncCompose(AsyncFilter):
         self, async_stream: AsyncIterable[Document]
     ) -> AsyncGenerator[Document, None]:
         async for doc in async_stream:
-            stat = DocInfo(doc)
-            doc.extras["__init_stats"] = stat.to_dict()
+            doc.extras["__init_stats"] = get_doc_info(doc)
             yield doc
 
     def get_total_statistics(self) -> list[Statistics]:

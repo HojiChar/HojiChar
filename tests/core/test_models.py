@@ -1,8 +1,6 @@
-import time
-
 import pytest
 
-from hojichar.core.models import DocInfo, Document, Statistics, Token
+from hojichar.core.models import Document, Statistics, Token
 
 
 def test_repr() -> None:
@@ -58,28 +56,6 @@ def test_deprecated_set_get_tokens():
     doc.set_tokens(["alpha", "beta"])
     assert all(isinstance(t, Token) for t in doc.tokens)
     assert doc.get_tokens() == ["alpha", "beta"]
-
-
-# --- DocInfo ---
-def test_docinfo_post_init_and_time_range():
-    doc = Document("hi", is_rejected=True)
-    t0 = time.perf_counter_ns()
-    info = DocInfo(doc)
-    t1 = time.perf_counter_ns()
-    assert info.is_rejected is True
-    assert info.bytes == len("hi".encode("utf-8"))
-    assert info.chars == 2
-    # perf_counter_ns の呼び出し時刻が t0～t1 の間に入っている
-    assert t0 <= info.time_ns <= t1
-
-
-def test_docinfo_from_dict():
-    data = {"is_rejected": False, "bytes": 10, "chars": 5, "time_ns": 9999}
-    info = DocInfo.from_dict(data)
-    assert info.is_rejected is False
-    assert info.bytes == 10
-    assert info.chars == 5
-    assert info.time_ns == 9999
 
 
 # --- Statistics ---
@@ -147,40 +123,6 @@ def test_statistics_update_and_reset(stat1, stat2):
         "cumulative_time_ns",
     ):
         assert getattr(s, field) == 0
-
-
-def test_statistics_from_diff_not_rejected():
-    # before: not rejected, small size
-    before = DocInfo.from_dict({"is_rejected": False, "bytes": 5, "chars": 5, "time_ns": 100})
-    # after: still not rejected, larger size
-    after = DocInfo.from_dict({"is_rejected": False, "bytes": 10, "chars": 10, "time_ns": 150})
-    stats = Statistics.from_diff(before, after)
-    assert stats.input_num == 1
-    assert stats.input_bytes == 5
-    assert stats.input_chars == 5
-    assert stats.output_num == 1
-    assert stats.output_bytes == 10
-    assert stats.output_chars == 10
-    assert stats.discard_num == 0
-    assert stats.diff_bytes == 5
-    assert stats.diff_chars == 5
-    assert stats.cumulative_time_ns == 50
-
-
-def test_statistics_from_diff_rejected():
-    before = DocInfo.from_dict({"is_rejected": False, "bytes": 7, "chars": 7, "time_ns": 200})
-    after = DocInfo.from_dict({"is_rejected": True, "bytes": 7, "chars": 7, "time_ns": 260})
-    stats = Statistics.from_diff(before, after)
-    assert stats.input_num == 1
-    assert stats.input_bytes == 7
-    assert stats.input_chars == 7
-    assert stats.output_num == 0
-    assert stats.output_bytes == 0
-    assert stats.output_chars == 0
-    assert stats.discard_num == 1
-    assert stats.diff_bytes == -7
-    assert stats.diff_chars == -7
-    assert stats.cumulative_time_ns == 60
 
 
 def test_statistics_add_and_assertion(stat1, stat2):

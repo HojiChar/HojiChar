@@ -19,6 +19,9 @@ def test_alias_import() -> None:
         document_filters,
         token_filters,
         tokenization,
+        AsyncFilterAdapter,
+        AsyncCompose,
+        AsyncFilter,
     )
 
 
@@ -29,3 +32,5 @@ def test_long_import() -> None:
     from hojichar.core.models import Document, Token
     from hojichar.core.parallel import Parallel
     from hojichar.filters import deduplication, document_filters, token_filters, tokenization
+    from hojichar.core.async_composition import AsyncCompose, AsyncFilterAdapter
+    from hojichar.core.async_filter_interface import AsyncFilter
