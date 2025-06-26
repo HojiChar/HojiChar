@@ -1,9 +1,6 @@
-# type: ignore
-import time
-
 import pytest
 
-from hojichar.core.models import Document, Statistics, Token, get_doc_info
+from hojichar.core.models import Document, Statistics, Token
 
 
 def test_repr() -> None:

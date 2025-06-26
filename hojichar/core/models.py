@@ -1,6 +1,6 @@
 import time
-from dataclasses import InitVar, dataclass, field, fields
-from typing import Any, Dict, List, Mapping, Optional
+from dataclasses import dataclass, fields
+from typing import Any, Dict, List, Optional
 
 from hojichar.utils.warn_deprecation import deprecated_since
 
