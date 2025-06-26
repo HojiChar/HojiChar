@@ -2,6 +2,8 @@
 .. include:: ../README.md
 """
 
+from .core.async_composition import AsyncCompose, AsyncFilterAdapter
+from .core.async_filter_interface import AsyncFilter
 from .core.composition import Compose
 from .core.filter_interface import Filter, TokenFilter
 from .core.inspection import StatsContainer
@@ -33,4 +35,7 @@ __all__ = [
     "language_identification",
     "token_filters",
     "tokenization",
+    "AsyncCompose",
+    "AsyncFilterAdapter",
+    "AsyncFilter",
 ]
