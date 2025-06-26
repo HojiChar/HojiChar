@@ -211,7 +211,7 @@ class Filter(ABC):
 
         if not self.use_batch:
             for document in stream:
-                document = self._try_process(document, self._apply)
+                yield self._try_process(document, self._apply)
         else:
             batch: list[Document] = []
             for document in stream:
