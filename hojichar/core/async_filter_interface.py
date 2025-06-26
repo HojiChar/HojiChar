@@ -3,12 +3,23 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, AsyncIterable, Iterable, Sequence
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterable,
+    Awaitable,
+    Callable,
+    Iterable,
+    Sequence,
+    TypeVar,
+)
 
 import numpy as np
 
 from hojichar.core.models import DocInfo, Document, Statistics
 from hojichar.utils.async_handlers import handle_stream_as_async
+
+T = TypeVar("T")
 
 
 def _is_jsonable(data: Any) -> bool:
@@ -99,14 +110,7 @@ class AsyncFilter(ABC):
     async def _apply(self, document: Document) -> Document:
         stats = DocInfo(document)
         if not self._check_skip(document):
-            try:
-                document = await self.apply(document)
-            except Exception as e:
-                msg = f"{e!r} occurred while applying filter {self.name} to document: {document!r}"
-                self.logger.error(msg, exc_info=True)
-                document.is_rejected = True
-                document.reject_reason = {"error": msg}
-                # self._statistics.errors += 1 # TODO Error count implementations
+            document = await self.apply(document)
         new_stats = DocInfo(document)
         diff_stats = Statistics.from_diff(stats, new_stats)
         async with self._stats_lock:
@@ -149,7 +153,7 @@ class AsyncFilter(ABC):
 
         if not self.use_batch:
             async for doc in async_stream:
-                yield await self._apply(doc)
+                yield await self._try_process(doc, self._apply)
         else:
             batch: list[Document] = []
             async for doc in async_stream:
@@ -161,7 +165,7 @@ class AsyncFilter(ABC):
                 # Batch size reached, apply batch
                 if len(batch) >= self.batch_size:
                     stats = [DocInfo(doc) for doc in batch]
-                    batch = await self.apply_batch(batch)
+                    batch = await self._try_process(batch, self.apply_batch)
                     batch = await self._finalize_batch(batch, stats)
                     for out in batch:
                         yield out
@@ -170,10 +174,33 @@ class AsyncFilter(ABC):
             # Flush remaining documents in the batch
             if batch:
                 stats = [DocInfo(doc) for doc in batch]
-                batch = await self.apply_batch(batch)
+                batch = await self._try_process(batch, self.apply_batch)
                 batch = await self._finalize_batch(batch, stats)
                 for out in batch:
                     yield out
+
+    async def _try_process(self, target: T, func: Callable[[T], Awaitable[T]]) -> T:
+        try:
+            return await func(target)
+        except Exception as e:
+            if isinstance(target, Document):
+                msg = f"{e!r} occurs while processing {self.name} with {target!r}"
+                self.logger.error(msg, exc_info=True)
+                target.is_rejected = True
+                target.reject_reason = {"error": msg}
+                async with self._stats_lock:
+                    self._statistics.errors += 1
+                return target  # type: ignore[return-value]
+            if isinstance(target, list):
+                msg = f"{e!r} occurs while batch processing {self.name}"
+                self.logger.error(msg, exc_info=True)
+                for doc in target:
+                    doc.is_rejected = True
+                    doc.reject_reason = {"error": msg}
+                async with self._stats_lock:
+                    self._statistics.errors += len(target)
+                return target  # type: ignore[return-value]
+            raise e
 
     async def __call__(self, text: str) -> str:
         document = Document(text=text)
