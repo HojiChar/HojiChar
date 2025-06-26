@@ -106,6 +106,7 @@ class AsyncFilter(ABC):
                 self.logger.error(msg, exc_info=True)
                 document.is_rejected = True
                 document.reject_reason = {"error": msg}
+                # self._statistics.errors += 1 # TODO Error count implementations
         new_stats = DocInfo(document)
         diff_stats = Statistics.from_diff(stats, new_stats)
         async with self._stats_lock:
@@ -121,19 +122,17 @@ class AsyncFilter(ABC):
         By default, the processing implemented in `apply` is executed asynchronously and concurrently.
         If the filter processing can be optimized for batch processing, override this method.
         """
-        tasks = [self._apply(doc) for doc in batch]
+        tasks = [self.apply(doc) for doc in batch]
         return await asyncio.gather(*tasks)
 
     async def _apply_batch(self, batch: Sequence[Document]) -> list[Document]:
+        skip = False
+        if self.p < 1:
+            skip = self._rng.random() > self.p
+
         stats = [DocInfo(doc) for doc in batch]
-        try:
+        if not skip:
             batch = await self.apply_batch(batch)
-        except Exception as e:
-            msg = f"{e!r} occurred while applying filter {self.name} to batch of documents."
-            self.logger.error(msg, exc_info=True)
-            for doc in batch:
-                doc.is_rejected = True
-                doc.reject_reason = {"error": msg}
         batch = await self._finalize_batch(batch, stats)
         return list(batch)
 
@@ -162,7 +161,7 @@ class AsyncFilter(ABC):
                 # Batch size reached, apply batch
                 if len(batch) >= self.batch_size:
                     stats = [DocInfo(doc) for doc in batch]
-                    batch = await self._apply_batch(batch)
+                    batch = await self.apply_batch(batch)
                     batch = await self._finalize_batch(batch, stats)
                     for out in batch:
                         yield out
@@ -171,7 +170,7 @@ class AsyncFilter(ABC):
             # Flush remaining documents in the batch
             if batch:
                 stats = [DocInfo(doc) for doc in batch]
-                batch = await self._apply_batch(batch)
+                batch = await self.apply_batch(batch)
                 batch = await self._finalize_batch(batch, stats)
                 for out in batch:
                     yield out

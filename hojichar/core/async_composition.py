@@ -14,7 +14,7 @@ from hojichar.utils.async_handlers import handle_stream_as_async
 
 class AsyncFilterAdapter(AsyncFilter):
     """
-    Filter を非同期で実行するためのアダプター
+    Adapter class for executing hojichar.Filter asynchronously.
     """
 
     def __init__(
@@ -32,6 +32,16 @@ class AsyncFilterAdapter(AsyncFilter):
         To reduce the overhead of asynchronous context switching,
         use_batch is set to True by default to process in batches
         in apply_stream, regardless of the sync_filter's use_batch setting.
+
+        If performing CPU-bound and heavy processing, you can specify an executor
+        to offload the processing to the executor. However, due to Python's GIL
+        constraints, using ThreadPoolExecutor will not parallelize CPU-bound
+        processing, and the entire process will be locked.
+
+        By using ProcessPoolExecutor as the executor, it may be possible to
+        parallelize CPU-bound processing. However, for parallelizing CPU-bound
+        processing, it is recommended to use the hojichar.Parallel class to
+        parallelize synchronous Compose pipeline.
         """
         super().__init__(*args, use_batch=use_batch, **kwargs)
         self.sync_filter = sync_filter
@@ -71,13 +81,11 @@ class AsyncCompose(AsyncFilter):
         **kwargs: Any,
     ):
         super().__init__(random_state=random_state, *args, **kwargs)
-
-        self.set_filters(filters)
         self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
         self._statistics.name = "Total"
-
         self._has_external_executor = executor is not None
         self._executor = executor or ThreadPoolExecutor()
+        self.set_filters(filters)
 
     def set_filters(self, filters: list[AsyncFilter | Filter]) -> None:
         self.filters: list[AsyncFilter] = []
@@ -85,21 +93,24 @@ class AsyncCompose(AsyncFilter):
         for f in filters:
             if isinstance(f, (AsyncCompose, Compose)):
                 for sub in f.filters:
-                    sub._set_rng_if_not_initialized(self._rng)
                     name = f"{filter_idx}-{sub.__class__.__name__}"
+                    if isinstance(sub, Filter):
+                        name = f"{filter_idx}-{sub.__class__.__name__}"
+                        sub = AsyncFilterAdapter(sub, executor=self._executor)
+
+                    sub._set_rng_if_not_initialized(self._rng)
                     sub.name = name
                     sub._statistics.name = name
-                    if isinstance(sub, Filter):
-                        sub = AsyncFilterAdapter(sub, executor=self._executor)
                     self.filters.append(sub)
                     filter_idx += 1
             else:
-                f._set_rng_if_not_initialized(self._rng)
                 name = f"{filter_idx}-{f.__class__.__name__}"
+                if isinstance(f, Filter):
+                    name = f"{filter_idx}-{f.__class__.__name__}"
+                    f = AsyncFilterAdapter(f, executor=self._executor)
+                f._set_rng_if_not_initialized(self._rng)
                 f.name = name
                 f._statistics.name = name
-                if isinstance(f, Filter):
-                    f = AsyncFilterAdapter(f, executor=self._executor)
                 self.filters.append(f)
                 filter_idx += 1
 
