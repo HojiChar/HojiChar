@@ -1,11 +1,13 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TypeVar, Union
 
 import numpy as np
 
 from hojichar.core.models import DocInfo, Document, Statistics, Token
 from hojichar.utils.warn_deprecation import deprecated_since
+
+T = TypeVar("T")
 
 
 def _is_jsonable(data: Any) -> bool:
@@ -189,7 +191,12 @@ class Filter(ABC):
         Apply the filter to a stream of documents.
         This method is used when you want to process documents one by one.
         If `use_batch` is set to `True` in the constructor,
-        this method will process documents in batches using `apply_batch` method.
+        this method will process documents in batches using the `apply_batch` method.
+
+        Even if an exception occurs during processing, the process will continue, and the following actions will be taken:
+        - Set the `is_rejected` flag of the document to `True`
+        - Set the error details in `reject_reason`
+        - Increment the `errors` count in the statistics retrievable via `get_statistics`
 
         Parameters
         ----------
@@ -204,7 +211,7 @@ class Filter(ABC):
 
         if not self.use_batch:
             for document in stream:
-                yield self._apply(document)
+                yield self._try_process(document, self._apply)
         else:
             batch: list[Document] = []
             for document in stream:
@@ -215,15 +222,37 @@ class Filter(ABC):
                 batch.append(document)
                 if len(batch) >= self.batch_size:
                     stats = [DocInfo(doc) for doc in batch]
-                    batch = self.apply_batch(batch)
+                    batch = self._try_process(batch, self.apply_batch)
                     batch = self._finalize_batch(batch, stats)
                     yield from batch
                     batch.clear()
             if batch:
                 stats = [DocInfo(doc) for doc in batch]
-                batch = self.apply_batch(batch)
+                batch = self._try_process(batch, self.apply_batch)
                 batch = self._finalize_batch(batch, stats)
                 yield from batch
+
+    def _try_process(self, target: T, func: Callable[[T], T]) -> T:
+        try:
+            return func(target)
+        except Exception as e:
+            if isinstance(target, Document):
+                msg = f"{e!r} occurs while processing {self.name} with {target!r}"
+                target.is_rejected = True
+                target.reject_reason = {"error": msg}
+                self._statistics.errors += 1
+                self.logger.error(msg, exc_info=True)
+                return target  # type: ignore[return-value]
+            if isinstance(target, list):
+                msg = f"{e!r} occurs while batch processing {self.name}"
+                self.logger.error(msg, exc_info=True)
+                for doc in target:
+                    doc.is_rejected = True
+                    doc.reject_reason = {"error": msg}
+                self._statistics.errors += len(target)
+                return target  # type: ignore[return-value]
+            else:
+                raise e
 
     def __call__(self, text: str, **kwargs: Any) -> str:
         document = Document(text, **kwargs)
