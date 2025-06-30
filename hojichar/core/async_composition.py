@@ -67,7 +67,7 @@ class AsyncFilterAdapter(AsyncFilter):
                 lambda: [self.sync_filter.apply(doc) for doc in batch],
             )
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         self.sync_filter.shutdown()
         if not self._has_external_executor:
             self._executor.shutdown()
@@ -177,16 +177,16 @@ class AsyncCompose(AsyncFilter):
         stats = self.get_total_statistics()
         return [stat.to_dict() for stat in stats]
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         for filt in self.filters:
-            filt.shutdown()
+            await filt.shutdown()
         if not self._has_external_executor:
             self._executor.shutdown()
 
-    def __enter__(self) -> "AsyncCompose":
+    async def __aenter__(self) -> "AsyncCompose":
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        self.shutdown()
+    async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        await self.shutdown()
         if exc_type is not None:
             raise exc_value
