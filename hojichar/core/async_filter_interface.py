@@ -224,17 +224,17 @@ class AsyncFilter(ABC):
         """
         return self._statistics.to_dict()
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """
         You can override this method to release resources or perform cleanup tasks.
         """
         pass
 
-    def __enter__(self) -> "AsyncFilter":
+    async def __aenter__(self) -> "AsyncFilter":
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        self.shutdown()
+    async def __aexit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        await self.shutdown()
 
     def get_jsonable_vars(self, exclude_keys: set[str] | None = None) -> dict[str, Any]:
         """
