@@ -128,7 +128,7 @@ async def test_compose_shutdown():
     comp_external = AsyncCompose(filters=[sync], executor=ThreadPoolExecutor(max_workers=1))
     # External executor passed; after shutdown, executor remains usable
     exec_ref = comp_external._executor
-    comp_external.shutdown()
+    await comp_external.shutdown()
     fut = exec_ref.submit(lambda: 456)
     assert fut.result() == 456
     exec_ref.shutdown()
@@ -136,7 +136,7 @@ async def test_compose_shutdown():
     # Internal executor owned; after shutdown, submitting should error
     comp_internal = AsyncCompose(filters=[sync])
     exec_int = comp_internal._executor
-    comp_internal.shutdown()
+    await comp_internal.shutdown()
     with pytest.raises(RuntimeError):
         exec_int.submit(lambda: 0)
 
