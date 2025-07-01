@@ -49,6 +49,7 @@ class AsyncFilterAdapter(AsyncFilter):
         self.sync_filter = sync_filter
         self._has_external_executor = executor is not None
         self._executor = executor or ThreadPoolExecutor()
+        self.batch_size = sync_filter.batch_size
 
     async def apply(self, document: Document) -> Document:
         loop = asyncio.get_running_loop()
