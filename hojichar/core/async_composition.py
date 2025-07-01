@@ -57,16 +57,10 @@ class AsyncFilterAdapter(AsyncFilter):
 
     async def apply_batch(self, batch: Sequence[Document]) -> list[Document]:
         loop = asyncio.get_running_loop()
-        if self.sync_filter.use_batch:
-            return await loop.run_in_executor(
-                self._executor,
-                lambda: self.sync_filter.apply_batch(batch),
-            )
-        else:
-            return await loop.run_in_executor(
-                self._executor,
-                lambda: [self.sync_filter.apply(doc) for doc in batch],
-            )
+        return await loop.run_in_executor(
+            self._executor,
+            lambda: self.sync_filter.apply_batch(batch),
+        )
 
     async def shutdown(self) -> None:
         self.sync_filter.shutdown()
