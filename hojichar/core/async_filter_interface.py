@@ -37,7 +37,7 @@ class AsyncFilter(ABC):
         p: float = 1.0,
         skip_rejected: bool = True,
         random_state: int | np.random.Generator | None = None,
-        use_batch: bool = False,
+        use_batch: bool = True,
         batch_size: int = 128,
         **kwargs: Any,
     ):
