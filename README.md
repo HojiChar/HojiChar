@@ -224,7 +224,7 @@ with open("input.jsonl") as f:
 
 - You can use this filter by installing `'hojichar[openai]'`
 - The filter works with OpenAI compatible APIs, like the endpoint hosted by vLLM. It's useful for text-augumentation tasks.
-  - The AsyncChatAPI works 1K req/sec with optimized vLLM server.
+  - The AsyncChatAPI works 1K req/sec with optimized vLLM server. (We reccomend to use `uvloop` to get better throughput.)
 
 ## Get Metrics of processing
 
