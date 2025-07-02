@@ -18,7 +18,7 @@ jobs:
         os:
           - macos-latest
           - ubuntu-latest
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.13t"]
 
     steps:
       - uses: actions/checkout@v4
@@ -27,17 +27,24 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: |
+          if [ '${{ matrix.python-version }}' == '3.13t' ]; then
+            uv sync
+          else
+            uv sync --all-extras
+          fi
       - name: Test with pytest and doctest
         run: |
           if [ '${{ matrix.python-version }}' == '3.12' ] && [ '${{ matrix.os }}' == 'ubuntu-latest' ]; then
             uv run pytest --cov -v --doctest-modules -m "download_test"
           elif [ '${{ matrix.python-version }}' == '3.9' ] && [ '${{ matrix.os }}' == 'macos-latest' ]; then
             echo "Skip test on macOS with Python 3.9"
+          elif [ '${{ matrix.python-version }}' == '3.13t' ]; then
+            uv run pytest --cov -v --doctest-modules -m "not extras"
           else
             uv run pytest --cov -v --doctest-modules -m "not download_test"
           fi
-      - name: Upload coverge reports to Codecov via GitHub Actions
+      - name: Upload coverage reports to Codecov via GitHub Actions
         uses: codecov/codecov-action@v5
 
   lint_check:

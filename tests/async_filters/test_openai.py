@@ -31,6 +31,7 @@ class DummyChatCompletion:
 
 
 @pytest.mark.asyncio
+@pytest.mark.extras
 async def test_apply_success_default_message_generator(monkeypatch):
     # Prepare document
     doc = Document(text="Hello, world!")
@@ -53,6 +54,7 @@ async def test_apply_success_default_message_generator(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.extras
 async def test_apply_custom_message_generator(monkeypatch):
     # Custom generator that wraps text
     custom_gen = lambda doc: [  # noqa E731
@@ -77,6 +79,7 @@ async def test_apply_custom_message_generator(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.extras
 async def test_apply_no_choices_raises():
     doc = Document(text="No choice")
 
@@ -93,6 +96,7 @@ async def test_apply_no_choices_raises():
 
 
 @pytest.mark.asyncio
+@pytest.mark.extras
 async def test_retry_mechanism(monkeypatch):
     doc = Document(text="Retry test")
     calls = []
@@ -115,6 +119,7 @@ async def test_retry_mechanism(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.extras
 async def test_custom_output_key(monkeypatch):
     doc = Document(text="Key test")
 

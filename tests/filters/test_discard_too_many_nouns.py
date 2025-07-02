@@ -1,7 +1,10 @@
+import pytest
+
 from hojichar import Document
 from hojichar.filters.document_filters import DiscardTooManyNouns
 
 
+@pytest.mark.extras
 def test_discard_too_many_nouns() -> None:
     filter = DiscardTooManyNouns()
 
