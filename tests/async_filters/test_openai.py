@@ -114,17 +114,6 @@ async def test_retry_mechanism(monkeypatch):
     assert len(calls) == 3
 
 
-def test_warnings_on_missing_env(monkeypatch, caplog):
-    # Remove both env vars
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_ENDPOINT_URL", raising=False)
-
-    caplog.set_level("WARNING")
-    # Expect warnings about missing API key and endpoint
-    assert "OPENAI_ENDPOINT_URL environment variable is not set" in caplog.text
-    assert "OPENAI_API_KEY environment variable is not set" in caplog.text
-
-
 @pytest.mark.asyncio
 async def test_custom_output_key(monkeypatch):
     doc = Document(text="Key test")

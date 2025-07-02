@@ -26,6 +26,7 @@ class AsyncChatAPI(AsyncFilter):
         output_key: str = "llm_output",
         max_concurrent_requests: int = 128,
         openai_endpoint_url: str | None = None,
+        openai_api_key: str | None = None,
         message_generator: Callable[[Document], Iterable[ChatCompletionMessageParam]]
         | Callable[[Document], list[dict[str, str]]] = lambda doc: [
             {"role": "user", "content": doc.text}
@@ -80,7 +81,7 @@ class AsyncChatAPI(AsyncFilter):
             timeout=timeout or httpx.Timeout(connect=5.0, write=30, read=180, pool=30),
             follow_redirects=True,
         )
-        _api_key = os.getenv("OPENAI_API_KEY")
+        _api_key = os.getenv("OPENAI_API_KEY", openai_api_key)
         if not _api_key:
             msg = (
                 "OPENAI_API_KEY environment variable is not set. "
