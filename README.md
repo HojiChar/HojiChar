@@ -197,21 +197,22 @@ This example demonstrates how to use the `AsyncChatAPI` filter to process text d
 import os
 
 from hojichar import AsyncCompose
+from hojichar.filters.document_filters import JSONLoader, JSONDumper
 from hojichar.utils.async_handlers import write_stream_to_file
 
 
 async_pipeline = AsyncCompose(
     [
-        hojichar.filters.document_filters.JSONLoader(input_key="text"),
+        JSONLoader(input_key="text"),
         AsyncChatAPI(
             model_id="gpt-4o",
             openai_endpoint_url="https://api.openai.com/v1", 
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             max_concurrent_requests=128,
-            output_key="llm_output", # Insert into Document.extras["llm_output"]
+            output_key="llm_output",
             message_generator=lambda doc: [{"role": "user", "content": doc.text[:1000]}],
         ),
-        hojichar.filters.document_filters.JSONDumper(export_extras=True),
+        JSONDumper(export_extras=True),
     ]
 )
 
