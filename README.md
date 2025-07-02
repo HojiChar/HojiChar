@@ -34,7 +34,13 @@ pip install hojichar
 If you want to use the additional filters, install the package with the following command:
 
 ```
-pip install hojichar[all]
+pip install 'hojichar[all]'
+```
+
+If you want to use `AsyncChatAPI` filter, install the package with the following command:
+
+```
+pip install 'hojichar[openai]'
 ```
 
 ## Defining a Compose Object
@@ -142,16 +148,6 @@ The `Filter` and `Compose` classes support efficient batch and stream processing
     ```
 
 
-**Example Usage:**
-
-```python
-docs = [Document("text1"), Document("text2"), Document("text3")]
-results = cleaner.apply_batch(docs)
-
-for doc in results:
-    print(doc.text)
-```
-
 ### `apply_stream`
 
 The `apply_stream` method processes an iterable (e.g., generator) of `Document` objects, ideal for large datasets or stream-based processing. If the `use_batch` flag is set to `True` in a `Filter`'s constructor, its apply_batch implementation will be utilized during stream processing.
@@ -172,6 +168,62 @@ This allows HojiChar to efficiently process massive corpora while maintaining lo
 
 - Even though the behavior of a `Compose` object when called is a text-in, text-out function, `Compose` itself also inherits from the `Filter` class. Therefore, applying the `apply` method to a `Compose` object results in `hojihcar.Document` class being used as input and output.
 - `Compose` class behaves like a Filter. If you add a Compose object as one of the filters in the constructor of Compose, the filter will be unfolded recursively.
+
+## HojiChar running asynchronously
+
+- HojiChar supports asynchronous processing of text data using the `AsyncCompose` class. This allows you to build pipelines that can handle out-of-CPU processing, such as making API calls.
+- You can define async versions of filter using the `AsyncFilter` class.
+
+    ```python
+    from hojichar import AsyncFilter
+
+    class YourAsyncFilter(AsyncFilter):
+        async def apply(self, document):
+            text = document.text
+            # Perform asynchronous processing here
+            document.text = text
+            return document
+    ```
+
+- The `AsyncCompose` class accepts both `Filter` and `AsyncFilter` objects, allowing you to mix synchronous and asynchronous filters in a single pipeline.
+
+### Example
+
+Nowadays, text processing is enhanced by the intelligence of LLMs.
+
+This example demonstrates how to use the `AsyncChatAPI` filter to process text data with OpenAI compatible APIs. This filter allows you to build high throughput of "Chain of LLMs" easily.
+
+```python
+import os
+
+from hojichar import AsyncCompose
+from hojichar.utils.async_handlers import write_stream_to_file
+
+
+async_pipeline = AsyncCompose(
+    [
+        hojichar.filters.document_filters.JSONLoader(input_key="text"),
+        AsyncChatAPI(
+            model_id="gpt-4o",
+            openai_endpoint_url="https://api.openai.com/v1", 
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            max_concurrent_requests=128,
+            output_key="llm_output", # Insert into Document.extras["llm_output"]
+            message_generator=lambda doc: [{"role": "user", "content": doc.text[:1000]}],
+        ),
+        hojichar.filters.document_filters.JSONDumper(export_extras=True),
+    ]
+)
+
+with open("input.jsonl") as f:
+    with async_pipeline:
+        async_output_stream = (str(doc) async for doc in async_pipeline.apply_stream(f))
+        await write_stream_to_file(async_output_stream, "output.jsonl", chunk_size=128) # Write async-iterable to file efficiently
+```
+
+- You can use this filter by installing `'hojichar[openai]'`
+- The filter works with OpenAI compatible APIs, like the endpoint hosted by vLLM. It's useful for text-augumentation tasks.
+  - The AsyncChatAPI works 1K req/sec with optimized vLLM server.
 
 ## Get Metrics of processing
 
