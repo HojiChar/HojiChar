@@ -5,13 +5,23 @@ import logging
 import os
 from typing import Any, Callable, Iterable
 
-import httpx
-from openai import AsyncOpenAI, DefaultAioHttpClient
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionMessageParam,
-)
-from tenacity import AsyncRetrying, before_sleep_log, stop_after_attempt, wait_random_exponential
+try:
+    import httpx
+    from openai import AsyncOpenAI, DefaultAioHttpClient
+    from openai.types.chat import (
+        ChatCompletion,
+        ChatCompletionMessageParam,
+    )
+    from tenacity import (
+        AsyncRetrying,
+        before_sleep_log,
+        stop_after_attempt,
+        wait_random_exponential,
+    )
+
+    is_loaded_extras = True
+except ImportError:
+    is_loaded_extras = False
 
 from hojichar import AsyncFilter, Document
 
@@ -54,6 +64,11 @@ class AsyncChatAPI(AsyncFilter):
             api_kwargs (dict[str, Any] | None): Additional keyword arguments to pass to the OpenAI API request.
         """
         super().__init__(**kwargs)
+        assert is_loaded_extras, (
+            "The `openai[aiohttp]` and `tenacity` package is required to use this filter. "
+            "Please install it by running `pip install hojichar[openai]`"
+            "or `pip install 'openai[aiohttp]' tenacity`."
+        )
 
         self.model_id = model_id
         endpoint_url = os.getenv("OPENAI_ENDPOINT_URL", openai_endpoint_url)
