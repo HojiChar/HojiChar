@@ -55,7 +55,7 @@ async def test_apply_success_default_message_generator(monkeypatch):
 @pytest.mark.asyncio
 async def test_apply_custom_message_generator(monkeypatch):
     # Custom generator that wraps text
-    custom_gen = lambda doc: [
+    custom_gen = lambda doc: [  # noqa E731
         {"role": "system", "content": "sys"},
         {"role": "user", "content": doc.text},
     ]
@@ -120,7 +120,6 @@ def test_warnings_on_missing_env(monkeypatch, caplog):
     monkeypatch.delenv("OPENAI_ENDPOINT_URL", raising=False)
 
     caplog.set_level("WARNING")
-    api = AsyncChatAPI(model_id="m")
     # Expect warnings about missing API key and endpoint
     assert "OPENAI_ENDPOINT_URL environment variable is not set" in caplog.text
     assert "OPENAI_API_KEY environment variable is not set" in caplog.text

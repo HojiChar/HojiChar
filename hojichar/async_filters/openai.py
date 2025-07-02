@@ -137,7 +137,7 @@ class AsyncChatAPI(AsyncFilter):
                     "Please check the endpoint URL and ensure your server is running."
                 )
                 raise ValueError(msg) from e
-            if not any(model_info["id"] == model_id for model_info in r["data"]):  # type: ignore
+            if not any(model_info["id"] == model_id for model_info in r["data"]):
                 msg = (
                     f"Model '{model_id}' not found in the OpenAI API Endpoint '{endpoint_url}/models'."
                     "Please check the model name and ensure it is available in your API."
