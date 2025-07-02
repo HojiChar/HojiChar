@@ -4,6 +4,7 @@ from hojichar.core.models import Document
 from hojichar.filters.language_identification import AcceptJapaneseByFastText
 
 
+@pytest.mark.extras
 @pytest.mark.download_test
 def test_accept_japanese_by_fasttext() -> None:
     filter = AcceptJapaneseByFastText()

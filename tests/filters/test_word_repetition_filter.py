@@ -4,6 +4,7 @@ from hojichar import Document
 from hojichar.filters.document_filters import WordRepetitionRatioFilter
 
 
+@pytest.mark.extras
 @pytest.mark.parametrize(
     "input_str,is_rejected",
     [

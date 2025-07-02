@@ -1,9 +1,12 @@
 import os
 
+import pytest
+
 from hojichar.core.models import Document
 from hojichar.filters.deduplication import GenerateDedupLSH, LSHDeduplicator
 
 
+@pytest.mark.extras
 class TestLSHDeduplicator:
     temporary_path = "load_blacklist.txt"
 
