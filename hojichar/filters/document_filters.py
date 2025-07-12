@@ -242,10 +242,11 @@ class JSONDumper(Filter):
                 )
         else:
             if self.export_extras:
+                output_extras = {k: v for k, v in document.extras.items() if k != "__init_stats"}
                 document.text = json.dumps(
                     {
                         "text": text,
-                        "extras": document.extras,
+                        "extras": output_extras,
                     },
                     ensure_ascii=False,
                 )
