@@ -37,7 +37,6 @@ class Document:
           filter class and the member name and value will logged at the filter is logged here.
 
     Next attributes will be deprecated in future versions:
-        dedup_lsh (List[str]): A list for deduplication using Locality Sensitive Hashing (LSH).
         tokens (List[Token]): A list of tokens extracted from the document.
     """
 
@@ -61,7 +60,6 @@ class Document:
         else:
             self.extras = extras
 
-        self.dedup_lsh: List[str] = []
         self.reject_reason: Dict[str, Any] = {}
 
     @property
