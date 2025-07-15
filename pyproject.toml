@@ -28,12 +28,19 @@ all = [
     "emoji>=2.13.2,<3",
     "fasttext>=0.9.3,<0.10",
     "requests>=2.32.3,<3",
-    "mmh3>=5.0.1,<6",
 ]
 openai = [
     "openai[aiohttp]>=1.89.0",
     "tenacity>=9.1.2"
     ]
+dedup = [
+    "fugashi>=1.5.1",
+    "nltk>=3.9.1",
+    "redis>=6.2.0",
+    "rensa>=0.2.7",
+    "scipy>=1.13.1",
+    "xxhash>=3.5.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/HojiChar/HojiChar"
