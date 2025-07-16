@@ -375,17 +375,14 @@ class RedisBloomDeduplicator(Filter):
         """
         super().__init__(**kwargs)
         self.rds = redis.Redis(host=host, port=port, db=db)
-        self.prefix = key_prefix.encode()
-        self.err = error_rate
-        self.cap = capacity
+        self.key_prefix = key_prefix.encode()
 
         self.rds = redis.Redis(host=host, port=port, db=db)
-        self.filter_key: bytes = key_prefix.encode()
 
         try:
             self.rds.execute_command(
                 "BF.RESERVE",
-                self.filter_key,
+                self.key_prefix,
                 error_rate,
                 capacity,
                 "EXPANSION",
@@ -405,7 +402,7 @@ class RedisBloomDeduplicator(Filter):
         key_bytes = [k.encode() for k in lsh_keys]
 
         # Return value of BF.MADD is [1,0,1,...] (0 = already exists, 1 = insertion successful)
-        flags: Iterable[int] = self.rds.execute_command("BF.MADD", self.filter_key, *key_bytes)
+        flags: Iterable[int] = self.rds.execute_command("BF.MADD", self.key_prefix, *key_bytes)
         if 0 in flags:
             document.is_rejected = True
         return document
