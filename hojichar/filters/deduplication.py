@@ -1,5 +1,6 @@
 """
 This module provides filters for deduplication using MinHash and Locality-Sensitive Hashing (LSH).
+If you want to use this module, install hojichar via `pip install 'hojichar[dedup]'`
 
 ## What is MinHash LSH?
 *A gentle introduction for first‑time leaner for MinHash LSH*
