@@ -377,8 +377,6 @@ class RedisBloomDeduplicator(Filter):
         self.rds = redis.Redis(host=host, port=port, db=db)
         self.key_prefix = key_prefix.encode()
 
-        self.rds = redis.Redis(host=host, port=port, db=db)
-
         try:
             self.rds.execute_command(
                 "BF.RESERVE",
