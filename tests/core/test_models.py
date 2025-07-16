@@ -32,7 +32,6 @@ def test_document_defaults():
     assert not doc.is_rejected
     assert doc.tokens == []
     assert doc.extras == {}
-    assert doc.dedup_lsh == []
     assert doc.reject_reason == {}
     assert str(doc) == "sample"
     # __repr__ contains key fields

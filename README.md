@@ -43,6 +43,12 @@ If you want to use `AsyncChatAPI` filter, install the package with the following
 pip install 'hojichar[openai]'
 ```
 
+If you want to use the near-deduplication (using MinHash LSH algorithm) filter, install the package with the following command:
+
+```
+pip install 'hojichar[dedup]'
+```
+
 ## Defining a Compose Object
 
 The [`Compose`](https://hojichar.github.io/HojiChar/hojichar.html#Compose) class in HojiChar allows you to create a sequence of text processing filters.

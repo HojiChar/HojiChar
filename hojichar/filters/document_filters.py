@@ -222,12 +222,13 @@ class JSONDumper(Filter):
         text = document.text
         if self.dump_reason:
             if self.export_extras:
+                output_extras = {k: v for k, v in document.extras.items() if k != "__init_stats"}
                 document.text = json.dumps(
                     {
                         "text": text,
                         "is_rejected": document.is_rejected,
                         "reason": document.reject_reason,
-                        "extras": document.extras,
+                        "extras": output_extras,
                     },
                     ensure_ascii=False,
                 )
