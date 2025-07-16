@@ -60,7 +60,7 @@ from rensa import RMinHash  # type: ignore
 
 from hojichar import Document, Filter
 
-_japanese_tagger: Optional["fugashi.Tagger"] = None  # noqa: F821 type: ignore[name-defined]
+_japanese_tagger: Optional["fugashi.Tagger"] = None  # type: ignore[name-defined] # noqa: F821
 NON_ALPHA = re.compile("[^A-Za-z_0-9]")
 
 
