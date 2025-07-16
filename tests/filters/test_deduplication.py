@@ -18,7 +18,7 @@ def test_non_alpha_num_splitter():
 
 
 def test_japanese_word_splitter_roundtrip():
-    fugashi = pytest.importorskip("fugashi")
+    fugashi = pytest.importorskip("fugashi")  # noqa: F401
     text = "これはテスト文章です"
     tokens = module.japanese_word_splitter(text)
     assert isinstance(tokens, list)
