@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install dependencies
-        run: uv sync --all-extras --with docs
+        run: uv sync --all-extras --group docs
       - name: Document generation
         run: |
           uv run pdoc -o docs hojichar
