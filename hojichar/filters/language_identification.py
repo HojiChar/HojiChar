@@ -4,7 +4,7 @@ import os
 import time
 from os import PathLike
 from pathlib import Path
-from typing import Any, Tuple, Union
+from typing import Any, Callable, Tuple, Union
 
 try:
     import requests
@@ -91,6 +91,7 @@ class LanguageIdentificationByFastText(Filter):
         language: str,
         lang_score_threshold: float = 0.50,
         model_path: Union[str, PathLike, None] = None,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -130,6 +131,7 @@ class LanguageIdentificationByFastText(Filter):
             f"Actual: {_get_md5_hash_of_file(self.model_path)}"
         )
         self.model = load_model(str(self.model_path))
+        self.target = target
 
     def _predict_language(self, text: str) -> Tuple[str, float]:
         # fasttext cannot handle multiline input
@@ -141,7 +143,7 @@ class LanguageIdentificationByFastText(Filter):
         return pred_lang, pred_score
 
     def apply(self, doc: Document) -> Document:
-        pred_lang, score = self._predict_language(doc.text)
+        pred_lang, score = self._predict_language(self.target(doc))
         if not (pred_lang == self.language and score >= self.lang_score_threshold):
             doc.is_rejected = True
         return doc
