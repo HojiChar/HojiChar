@@ -123,6 +123,7 @@ class GenerateDedupLSH(Filter):
         tokenizer: Callable[[str], Iterable[str]] = char_level_splitter,
         n_grams: int = 5,
         seed: int = 42,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         **kwargs: Any,
     ) -> None:
         """
@@ -142,6 +143,7 @@ class GenerateDedupLSH(Filter):
         self.tokenizer = tokenizer
         self.n_grams = n_grams
         self.seed = seed
+        self.target = target
 
         # Compute optimal number of bands and band size based on threshold
         self.num_bands, self.band_size = _optimal_param(
@@ -238,7 +240,7 @@ class GenerateDedupLSH(Filter):
         Returns:
             The same Document object with 'dedup_lsh' added in extras.
         """
-        signature = self.calculate_minhash_signature(document.text)
+        signature = self.calculate_minhash_signature(self.target(document))
         lsh_keys = [
             self._format_lsh_key(
                 band_idx, self.signature_to_lsh_digest(signature, self.band_size, band_idx)

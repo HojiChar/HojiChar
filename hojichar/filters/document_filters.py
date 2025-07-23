@@ -8,7 +8,7 @@ import unicodedata
 from collections import Counter
 from itertools import groupby
 from os import PathLike
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -31,28 +31,48 @@ logger = logging.getLogger(__name__)
 class ExampleHojiChar(Filter):
     """基本的なフィルタの実装例です. 末尾に'<hojichar>'を追加します."""
 
+    def __init__(
+        self,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        setter: Callable[[Document, str], None] = lambda doc, new_text: setattr(
+            doc, "text", new_text
+        ),
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.target = target
+        self.setter = setter
+
     def apply(self, document: Document) -> Document:
         """
         >>> ExampleHojiChar()("hello, world")
         'hello, world<hojichar>'
         """
-        document.text += "<hojichar>"
+        self.setter(document, self.target(document) + "<hojichar>")
         return document
 
 
 class ExampleDiscardDocumentContainKeyword(Filter):
     """特定のキーワードを持つドキュメントを破棄するようなフィルタの実装例です."""
 
-    def __init__(self, keyword: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        keyword: str,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.keyword = keyword
+        self.target = target
 
     def apply(self, document: Document) -> Document:
         """
         >>> ExampleDiscardDocumentContainKeyword("バカ").apply(Document("あいつはバカだ")).is_rejected
         True
         """
-        if self.keyword in document.text:
+        if self.keyword in self.target(document):
             document.is_rejected = True
         return document
 
@@ -122,11 +142,14 @@ class DocumentNormalizer(Filter):
     Unicode の正規化をします.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, target: Callable[[Document], str] = lambda doc: doc.text, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
+        self.target = target
 
     def apply(self, document: Document) -> Document:
-        document.text = unicodedata.normalize("NFKC", document.text)
+        document.text = unicodedata.normalize("NFKC", self.target(document))
         return document
 
 
@@ -266,6 +289,7 @@ class DocumentLengthFilter(Filter):
         self,
         min_doc_len: Optional[int] = None,
         max_doc_len: Optional[int] = None,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -273,13 +297,14 @@ class DocumentLengthFilter(Filter):
 
         self.min_doc_len = min_doc_len
         self.max_doc_len = max_doc_len
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
         """
         >>> DocumentLengthFilter(min_doc_len=5).apply(Document("1234")).is_rejected
         True
         """
-        doc_len = len(doc.text)
+        doc_len = len(self.target(doc))
         if self.min_doc_len is not None:
             if doc_len < self.min_doc_len:
                 doc.is_rejected = True
@@ -304,6 +329,7 @@ class NgWordsFilterJa(Filter):
         self,
         dict_path: Union[str, PathLike],
         ignore_confused: bool = False,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -330,12 +356,15 @@ class NgWordsFilterJa(Filter):
             pat = "|".join(ng_words)
             self.keyword_pat = re.compile(pat)
 
+        self.target = target
+
     def apply(self, doc: Document) -> Document:
-        regex_match = self.keyword_pat.search(doc.text)
+        target_text = self.target(doc)
+        regex_match = self.keyword_pat.search(target_text)
         if regex_match:
             doc.is_rejected = True
             self.matched_text = regex_match.group()
-            self.matched_text_neighbor = doc.text[
+            self.matched_text_neighbor = target_text[
                 regex_match.start() - 20 : regex_match.end() + 20
             ]
 
@@ -349,7 +378,13 @@ class NgWordsFilterEn(Filter):
     ファイルは単語が改行で羅列されたテキストファイルです.
     """
 
-    def __init__(self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        dict_path: Union[str, PathLike],
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -358,9 +393,10 @@ class NgWordsFilterEn(Filter):
         pat = "|".join(ng_words)
         # 英語のパターンにマッチするようにしている, \s[単語]\s や [単語]. [単語], などにマッチ.
         self.keyword_pat = re.compile(rf"(?:^| )({pat})(?:( |,|\.)|$)", re.IGNORECASE)
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
-        if self.keyword_pat.search(doc.text):
+        if self.keyword_pat.search(self.target(doc)):
             doc.is_rejected = True
         return doc
 
@@ -488,10 +524,17 @@ class DiscardBBSComments(Filter):
     https://regex101.com/r/ybQvL2/1
     """
 
-    def __init__(self, max_allowed_num: int = 14, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        max_allowed_num: int = 14,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.max_allowed_num = max_allowed_num
+        self.target = target
         self.keyword_pat = re.compile(
             r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"  # noqa
         )
@@ -504,7 +547,7 @@ class DiscardBBSComments(Filter):
         >>> DiscardBBSComments().apply(Document("鏡餅")).is_rejected
         False
         """
-        bbs_factor = self.keyword_pat.findall(doc.text)
+        bbs_factor = self.keyword_pat.findall(self.target(doc))
         if len(bbs_factor) > self.max_allowed_num:
             doc.is_rejected = True
         return doc
@@ -523,6 +566,7 @@ class DiscardAds(Filter):
         self,
         dict_path: Union[str, PathLike] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
         max_allowed_num: int = 14,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ):
@@ -534,6 +578,7 @@ class DiscardAds(Filter):
         ng_words = [re.escape(w.strip()) for w in ng_words if not len(w) == 0]
         pat = r"|".join(ng_words)
         self.keyword_pat = re.compile(pat)
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
         """
@@ -543,7 +588,7 @@ class DiscardAds(Filter):
         >>> DiscardAds().apply(Document("おはよう")).is_rejected
         False
         """
-        ads_factor = self.keyword_pat.findall(doc.text)
+        ads_factor = self.keyword_pat.findall(self.target(doc))
         if len(ads_factor) > self.max_allow_num:
             doc.is_rejected = True
         return doc
@@ -556,11 +601,18 @@ class AcceptJapanese(Filter):
         ひらがな・カタカナが存在すれば日本語と判定する.
     """
 
-    def __init__(self, lookup_size: int = 50, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        lookup_size: int = 50,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.lookup_size = lookup_size
         self.hiragana_katakana_pat = re.compile(r"[ぁ-んァ-ン]")
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
         """
@@ -573,7 +625,8 @@ class AcceptJapanese(Filter):
         >>> AcceptJapanese().apply(Document("ほうじ茶")).is_rejected
         False
         """
-        if not self.hiragana_katakana_pat.search(doc.text[: self.lookup_size]):
+        target_text = self.target(doc)
+        if not self.hiragana_katakana_pat.search(target_text[: self.lookup_size]):
             doc.is_rejected = True
         return doc
 
@@ -587,11 +640,18 @@ class DiscardRareKuten(Filter):
     このフィルタは, 文章中の句点の割合が少なすぎるドキュメントを破棄します.
     """
 
-    def __init__(self, max_average_sentence_length: int = 100, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        max_average_sentence_length: int = 100,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.max_average_sentence_length = max_average_sentence_length
         self.kuten_pat = re.compile(r"。")
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
         """
@@ -600,8 +660,9 @@ class DiscardRareKuten(Filter):
         >>> DiscardRareKuten(max_average_sentence_length=4).apply(Document("おはよう。")).is_rejected
         True
         """
-        kuten_lst = self.kuten_pat.findall(doc.text)
-        min_kuten_num = len(doc.text) / self.max_average_sentence_length
+        target_text = self.target(doc)
+        kuten_lst = self.kuten_pat.findall(target_text)
+        min_kuten_num = len(target_text) / self.max_average_sentence_length
         if len(kuten_lst) < min_kuten_num:
             doc.is_rejected = True
         return doc
@@ -674,7 +735,15 @@ class MaskPersonalInformation(Filter):
     ドキュメントに含まれる電話番号・電子メールアドレスを一部マスキングします.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        setter: Callable[[Document, str], None] = lambda doc, new_text: setattr(
+            doc, "text", new_text
+        ),
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.phone_pat = re.compile(
@@ -683,6 +752,8 @@ class MaskPersonalInformation(Filter):
         self.email_pat = re.compile(
             r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
         )
+        self.target = target
+        self.setter = setter
 
     def apply(self, doc: Document) -> Document:
         """
@@ -711,9 +782,10 @@ class MaskPersonalInformation(Filter):
         >>> MaskPersonalInformation()('何かあれば hogehoge@example.ne.jp まで連絡')
         '何かあれば xxxx@yyy.jp まで連絡'
         """
-        text = self.phone_pat.sub(r"\1XXXX", doc.text)
+        target_text = self.target(doc)
+        text = self.phone_pat.sub(r"\1XXXX", target_text)
         text = self.email_pat.sub(r"xxxx@yyy\1", text)
-        doc.text = text
+        self.setter(doc, text)
         return doc
 
 
@@ -726,7 +798,13 @@ class DiscardTooManyNouns(Filter):
     documents such as advertisement, word salad, etc ...
     """
 
-    def __init__(self, threshold: float = 0.80, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        threshold: float = 0.80,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """
         Args:
             threshold: document whose noun ratio is higher than this value will be discarded
@@ -743,6 +821,7 @@ class DiscardTooManyNouns(Filter):
         assert "unidic" in self.tagger.dictionary_info[0]["filename"], (
             "MeCab dictionary must be unidic"
         )
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
         """
@@ -758,7 +837,7 @@ class DiscardTooManyNouns(Filter):
         # e.g., the sentence "リンゴ・オレンジ・バナナ・" has 補助記号 ratio of 0.5
         # however, we don't want such sentence
         pos_count = Counter(
-            w.feature.pos1 for w in self.tagger(doc.text) if w.feature.pos1 != "補助記号"
+            w.feature.pos1 for w in self.tagger(self.target(doc)) if w.feature.pos1 != "補助記号"
         )
         try:
             noun_ratio = pos_count["名詞"] / sum(pos_count.values())
@@ -786,7 +865,12 @@ class CharRepetitionRatioFilter(Filter):
     """
 
     def __init__(
-        self, threshold: float = 0.33, ngram_size: int = 5, *args: Any, **kwargs: Any
+        self,
+        threshold: float = 0.33,
+        ngram_size: int = 5,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
 
@@ -800,9 +884,10 @@ class CharRepetitionRatioFilter(Filter):
         super().__init__(*args, **kwargs)
         self.threshold = threshold
         self.ngram_size = ngram_size
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
-        ratio = self.compute_character_repetition_ratio(doc.text, self.ngram_size)
+        ratio = self.compute_character_repetition_ratio(self.target(doc), self.ngram_size)
         if ratio >= self.threshold:
             doc.is_rejected = True
         return doc
@@ -866,7 +951,12 @@ class WordRepetitionRatioFilter(Filter):
     """  # noqa: E501
 
     def __init__(
-        self, threshold: float = 0.40, ngram_size: int = 7, *args: Any, **kwargs: Any
+        self,
+        threshold: float = 0.40,
+        ngram_size: int = 7,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
 
@@ -884,9 +974,10 @@ class WordRepetitionRatioFilter(Filter):
         self.threshold = threshold
         self.ngram_size = ngram_size
         self.tagger = Tagger("-Owakati")
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
-        ratio = self.compute_word_repetition_ratio(doc.text, self.ngram_size)
+        ratio = self.compute_word_repetition_ratio(self.target(doc), self.ngram_size)
         if ratio >= self.threshold:
             doc.is_rejected = True
         return doc
@@ -921,7 +1012,13 @@ class DiscardTooManySpecialToken(Filter):
     元実装: BigScience https://github.com/bigscience-workshop/data-preparation/blob/9d0588419073cc5bf0fb92b58f37f2a1016572c3/preprocessing/training/01b_oscar_cleaning_and_filtering/parameters_filtering.py#L5-L16  # noqa: E501
     """
 
-    def __init__(self, threshold: float = 0.4, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        threshold: float = 0.4,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """
 
         Args:
@@ -949,6 +1046,7 @@ class DiscardTooManySpecialToken(Filter):
         self.special_characters = special_characters_default
 
         self.threshold = threshold
+        self.target = target
 
     def _compute_special_characters_ratio(self, text: str) -> float:
         if len(text) == 0:
@@ -960,7 +1058,7 @@ class DiscardTooManySpecialToken(Filter):
         return special_characters_ratio
 
     def apply(self, doc: Document) -> Document:
-        special_characters_ratio = self._compute_special_characters_ratio(doc.text)
+        special_characters_ratio = self._compute_special_characters_ratio(self.target(doc))
 
         if special_characters_ratio > self.threshold:
             doc.is_rejected = True
@@ -978,6 +1076,7 @@ class SingleCharacterRepetitionFilter(Filter):
     def __init__(
         self,
         threshold: int = 200,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -989,6 +1088,7 @@ class SingleCharacterRepetitionFilter(Filter):
         """
         super().__init__(*args, **kwargs)
         self.threshold = threshold
+        self.target = target
 
     def _is_repeat_contained(self, text: str) -> bool:
         groups = groupby(text)
@@ -996,7 +1096,7 @@ class SingleCharacterRepetitionFilter(Filter):
         return is_repeat_contained
 
     def apply(self, doc: Document) -> Document:
-        if self._is_repeat_contained(doc.text):
+        if self._is_repeat_contained(self.target(doc)):
             doc.is_rejected = True
         return doc
 
@@ -1020,6 +1120,7 @@ class DiscardTooManyEndingEllipsis(Filter):
     def __init__(
         self,
         threshold: float = 0.7,
+        target: Callable[[Document], str] = lambda doc: doc.text,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -1032,10 +1133,12 @@ class DiscardTooManyEndingEllipsis(Filter):
         super().__init__(*args, **kwargs)
         self.threshold = threshold
         self.ellipsis_pattern = re.compile(r"(\.{3}|…)\n")  # matches ...\n and …\n
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
-        ellipsis_count = len(self.ellipsis_pattern.findall(doc.text))
-        newline_count = max(doc.text.count("\n"), 1)  # avoid zero division
+        target_text = self.target(doc)
+        ellipsis_count = len(self.ellipsis_pattern.findall(target_text))
+        newline_count = max(target_text.count("\n"), 1)  # avoid zero division
         ellipsis_ratio = ellipsis_count / newline_count
 
         if ellipsis_ratio > self.threshold:
@@ -1050,7 +1153,13 @@ class DiscardTooShortLines(Filter):
     メニューバーやパンくずリストのような要素を大量に含む文書を取り除くのに有効です.
     """
 
-    def __init__(self, threshold: float = 0.5, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        threshold: float = 0.5,
+        target: Callable[[Document], str] = lambda doc: doc.text,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """
         Args:
             threshold: The document is removed if the ratio of short (<10 chars) lines are more than this value.
@@ -1061,9 +1170,10 @@ class DiscardTooShortLines(Filter):
         self.threshold = threshold
         # この値は適当に決め打ち
         self.minimum_line_length = 10
+        self.target = target
 
     def apply(self, doc: Document) -> Document:
-        lines = [len(x) for x in doc.text.split("\n")]
+        lines = [len(x) for x in self.target(doc).split("\n")]
         short_lines = [x for x in lines if x <= self.minimum_line_length]
         if (len(short_lines) / len(lines)) > self.threshold:
             doc.is_rejected = True
