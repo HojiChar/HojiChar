@@ -8,7 +8,7 @@ import unicodedata
 from collections import Counter
 from itertools import groupby
 from os import PathLike
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 
@@ -726,10 +726,13 @@ class DiscardTooManyNouns(Filter):
     documents such as advertisement, word salad, etc ...
     """
 
-    def __init__(self, threshold: float = 0.80, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, threshold: float = 0.80, max_parse_chars: int = 100_000, *args: Any, **kwargs: Any
+    ) -> None:
         """
         Args:
             threshold: document whose noun ratio is higher than this value will be discarded
+            max_parse_chars: maximum number of characters to parse in the document. Too large value may cause segmentation fault parsing the document.
             *args:
             **kwargs:
         """
@@ -739,10 +742,17 @@ class DiscardTooManyNouns(Filter):
         )
 
         self.threshold = threshold
+        self.max_parse_chars = max_parse_chars
         self.tagger = Tagger("-Owakati")
         assert "unidic" in self.tagger.dictionary_info[0]["filename"], (
             "MeCab dictionary must be unidic"
         )
+
+    def _chunk_text(self, text: str) -> Iterable[str]:
+        """Slice text into chunks of `max_parse_chars` length."""
+        step = self.max_parse_chars
+        for i in range(0, len(text), step):
+            yield text[i : i + step]
 
     def apply(self, doc: Document) -> Document:
         """
@@ -757,9 +767,13 @@ class DiscardTooManyNouns(Filter):
         # because they often decrease the noun ratio,
         # e.g., the sentence "リンゴ・オレンジ・バナナ・" has 補助記号 ratio of 0.5
         # however, we don't want such sentence
-        pos_count = Counter(
-            w.feature.pos1 for w in self.tagger(doc.text) if w.feature.pos1 != "補助記号"
-        )
+
+        pos_count: Counter[str] = Counter()
+        for chunk in self._chunk_text(doc.text):
+            for word in self.tagger(chunk):
+                if word.feature.pos1 != "補助記号":
+                    pos_count[word.feature.pos1] += 1
+
         try:
             noun_ratio = pos_count["名詞"] / sum(pos_count.values())
         except ZeroDivisionError:
@@ -866,13 +880,19 @@ class WordRepetitionRatioFilter(Filter):
     """  # noqa: E501
 
     def __init__(
-        self, threshold: float = 0.40, ngram_size: int = 7, *args: Any, **kwargs: Any
+        self,
+        threshold: float = 0.40,
+        ngram_size: int = 7,
+        max_parse_chars: int = 100_000,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
 
         Args:
             threshold: document whose character repetition ratio is higher than this value will be discarded
             ngram_size: character ngram size. Larger value will decrease the false positive of long documents
+            max_parse_chars: maximum number of characters to parse in the document. Too large value may cause segmentation fault parsing the document.
             *args:
             **kwargs:
         """  # noqa: E501
@@ -883,7 +903,23 @@ class WordRepetitionRatioFilter(Filter):
 
         self.threshold = threshold
         self.ngram_size = ngram_size
+        self.max_parse_chars = max_parse_chars
         self.tagger = Tagger("-Owakati")
+
+    def _chunk_text(self, text: str) -> Iterable[str]:
+        """Split text into chunks of `max_parse_chars` length."""
+        step = self.max_parse_chars
+        for i in range(0, len(text), step):
+            yield text[i : i + step]
+
+    def _get_freq_word_ngrams(self, words: List[str], n: int) -> Dict[str, int]:
+        freq: Dict[str, int] = {}
+        if n <= 0 or len(words) < n:
+            return freq
+        for i in range(len(words) - n + 1):
+            key = " ".join(words[i : i + n])
+            freq[key] = freq.get(key, 0) + 1
+        return freq
 
     def apply(self, doc: Document) -> Document:
         ratio = self.compute_word_repetition_ratio(doc.text, self.ngram_size)
@@ -891,25 +927,19 @@ class WordRepetitionRatioFilter(Filter):
             doc.is_rejected = True
         return doc
 
-    def compute_word_repetition_ratio(self, document: str, word_repetition_length: int) -> float:
-        def get_freq_word_ngrams(document: str, n: int) -> Dict[str, int]:
-            # tokenizing given document
-            words = [w.surface for w in self.tagger(document)]
-            word_ngrams = [" ".join(words[i : i + n]) for i in range(len(words) - n + 1)]
-            freq_word_ngrams: Dict[str, int] = {}
-            for word_ngram in word_ngrams:
-                freq_word_ngrams[word_ngram] = freq_word_ngrams.get(word_ngram, 0) + 1
-            return freq_word_ngrams
+    def compute_word_repetition_ratio(self, document: str, n: int) -> float:
+        total_counter: Counter[str] = Counter()
 
-        freq_word_ngrams_dict = get_freq_word_ngrams(document, word_repetition_length)
-        if len(freq_word_ngrams_dict) == 0:
-            return 0
-        freq_word_ngrams = list(freq_word_ngrams_dict.values())
-        word_repetition_ratio = sum(freq for freq in freq_word_ngrams if freq > 1) / sum(
-            freq_word_ngrams
-        )
+        for chunk in self._chunk_text(document):
+            words = [w.surface for w in self.tagger(chunk)]
+            total_counter.update(self._get_freq_word_ngrams(words, n))
 
-        return word_repetition_ratio
+        if not total_counter:
+            return 0.0
+
+        total = sum(total_counter.values())
+        repeated = sum(v for v in total_counter.values() if v > 1)
+        return repeated / total
 
 
 class DiscardTooManySpecialToken(Filter):
