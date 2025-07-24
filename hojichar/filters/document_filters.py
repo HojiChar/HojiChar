@@ -8,7 +8,7 @@ import unicodedata
 from collections import Counter
 from itertools import groupby
 from os import PathLike
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import numpy as np
 
@@ -726,10 +726,13 @@ class DiscardTooManyNouns(Filter):
     documents such as advertisement, word salad, etc ...
     """
 
-    def __init__(self, threshold: float = 0.80, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, threshold: float = 0.80, max_parse_chars: int = 100_000, *args: Any, **kwargs: Any
+    ) -> None:
         """
         Args:
             threshold: document whose noun ratio is higher than this value will be discarded
+            max_parse_chars: maximum number of characters to parse in the document
             *args:
             **kwargs:
         """
@@ -739,10 +742,17 @@ class DiscardTooManyNouns(Filter):
         )
 
         self.threshold = threshold
+        self.max_parse_chars = max_parse_chars
         self.tagger = Tagger("-Owakati")
         assert "unidic" in self.tagger.dictionary_info[0]["filename"], (
             "MeCab dictionary must be unidic"
         )
+
+    def _chunk_text(self, text: str) -> Iterable[str]:
+        """Slice text into chunks of `max_parse_chars` length."""
+        step = self.max_parse_chars
+        for i in range(0, len(text), step):
+            yield text[i : i + step]
 
     def apply(self, doc: Document) -> Document:
         """
@@ -757,9 +767,13 @@ class DiscardTooManyNouns(Filter):
         # because they often decrease the noun ratio,
         # e.g., the sentence "リンゴ・オレンジ・バナナ・" has 補助記号 ratio of 0.5
         # however, we don't want such sentence
-        pos_count = Counter(
-            w.feature.pos1 for w in self.tagger(doc.text) if w.feature.pos1 != "補助記号"
-        )
+
+        pos_count = Counter()
+        for chunk in self._chunk_text(doc.text):
+            for word in self.tagger(chunk):
+                if word.feature.pos1 != "補助記号":
+                    pos_count[word.word.feature.pos1] += 1
+
         try:
             noun_ratio = pos_count["名詞"] / sum(pos_count.values())
         except ZeroDivisionError:
