@@ -772,7 +772,7 @@ class DiscardTooManyNouns(Filter):
         for chunk in self._chunk_text(doc.text):
             for word in self.tagger(chunk):
                 if word.feature.pos1 != "補助記号":
-                    pos_count[word.word.feature.pos1] += 1
+                    pos_count[word.feature.pos1] += 1
 
         try:
             noun_ratio = pos_count["名詞"] / sum(pos_count.values())
