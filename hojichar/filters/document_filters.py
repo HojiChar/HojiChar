@@ -768,7 +768,7 @@ class DiscardTooManyNouns(Filter):
         # e.g., the sentence "リンゴ・オレンジ・バナナ・" has 補助記号 ratio of 0.5
         # however, we don't want such sentence
 
-        pos_count = Counter()
+        pos_count: Counter[str] = Counter()
         for chunk in self._chunk_text(doc.text):
             for word in self.tagger(chunk):
                 if word.feature.pos1 != "補助記号":
