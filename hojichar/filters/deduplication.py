@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import sys
 from typing import Any, Callable, Final, Iterable, Optional
 
 import numpy as np
@@ -176,6 +177,18 @@ class GenerateDedupLSH(Filter):
         # Convert digest (list of ints) to numpy uint32 array
         return np.asarray(minhash.digest(), dtype=np.uint32)
 
+    def _sig_bytes_le(self, sig: NDArray[np.uint32]) -> memoryview:
+        """
+        Return the signature as *little-endian* byte view.
+        Platform‑independent way to get bytes from a numpy array.
+        """
+        if sys.byteorder == "little":
+            # amd64 / arm64 (little)
+            return memoryview(sig).cast("B")  # type: ignore[arg-type]  # zero-copy
+        else:
+            # big-endian CPU
+            return memoryview(sig.byteswap()).cast("B")  # type: ignore[arg-type] # 1 copy
+
     def signature_to_lsh_digest(
         self, signature: NDArray[np.uint32], band_size: int, band_idx: int
     ) -> int:
@@ -213,8 +226,7 @@ class GenerateDedupLSH(Filter):
         stop = start + band_size * self._BYTES_PER_U32
 
         # View signature as raw bytes without copy. memoryview avoids creating new bytes.
-        u8 = signature.view(np.uint8)
-        mv = memoryview(u8)[start:stop]  # type: ignore[arg-type]
+        mv = self._sig_bytes_le(signature)[start:stop]  # slice view
 
         return xxhash.xxh128_intdigest(mv)
 
@@ -352,37 +364,41 @@ class RedisBloomDeduplicator(Filter):
     def __init__(
         self,
         *,
+        expected_docs: int,
         host: str = "localhost",
         port: int = 6379,
         db: int = 0,
         key_prefix: str = "bloomdedup",
-        error_rate: float = 1e-4,
-        capacity: int = 1_000_000_000,
+        error_rate: float = 1e-7,
         expansion: int = 2,
+        num_bands: int | None = None,
         **kwargs: Any,
     ):
         """
         Initialize the RedisBloom deduplicator.
         Args:
+            expected_docs (int): Expected number of documents to deduplicate. This is used to set the initial capacity of the Bloom filter.
             host (str): Redis server hostname.
             port (int): Redis server port.
             db (int): Redis database number.
             key_prefix (str): Prefix for Redis keys to avoid collisions. You should use a unique prefix for each deduplication task.
             error_rate (float): Desired error rate for the Bloom filter.
-            capacity (int): Initial capacity of the Bloom filter. Guide: set it to the expected number of unique LSH keys ~ num_doc * num_bands.
             expansion (int): Expansion factor for the Bloom filter. This is used to increase the capacity of the filter dynamically.
+            num_bands (int | None): Number of bands to use for LSH to calculate the capacity of BloomFilter. If None, it will be set to 32.
             **kwargs: Additional keyword arguments for parent Filter.
         """
         super().__init__(**kwargs)
         self.rds = redis.Redis(host=host, port=port, db=db)
         self.key_prefix = key_prefix.encode()
 
+        _num_bands = num_bands if num_bands is not None else 32
+
         try:
             self.rds.execute_command(
                 "BF.RESERVE",
                 self.key_prefix,
                 error_rate,
-                capacity,
+                expected_docs * _num_bands,
                 "EXPANSION",
                 expansion,
             )
