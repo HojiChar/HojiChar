@@ -7,6 +7,7 @@ from typing import Any, AsyncGenerator, AsyncIterable, Iterable, Sequence
 
 import numpy as np
 
+from hojichar.core import inspection
 from hojichar.core.async_filter_interface import AsyncFilter
 from hojichar.core.composition import Compose
 from hojichar.core.filter_interface import Filter
@@ -171,6 +172,34 @@ class AsyncCompose(AsyncFilter):
         """
         stats = self.get_total_statistics()
         return [stat.to_dict() for stat in stats]
+
+    @property
+    def statistics(self) -> dict:
+        """
+        Deprecated
+
+        Get the statistics of the Compose object and sub filters.
+
+        This property is retained for compatibility with previous versions.
+        Please use `get_total_statistics` or `get_total_statistics_map` instead.
+        """
+        return inspection.statistics_obj_adapter(  # type: ignore
+            self.get_total_statistics()
+        ).get_human_readable_values()
+
+    @property
+    def statistics_obj(self) -> inspection.StatsContainer:
+        """
+        Deprecated
+
+        Get the statistics of the AsyncCompose object and sub filters.
+        This method returns a StatsContainer object which contains the statistics
+        of the AsyncCompose object and sub filters.
+
+        This property is retained for compatibility with previous versions.
+        Please use `get_total_statistics` or `get_total_statistics_map` instead.
+        """
+        return inspection.statistics_obj_adapter(self.get_total_statistics())  # type: ignore
 
     async def shutdown(self) -> None:
         for filt in self.filters:
