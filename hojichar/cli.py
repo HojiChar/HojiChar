@@ -124,16 +124,20 @@ def main() -> None:
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
     filter = load_compose(args.profile, *tuple(args.args))
     try:
-        with Parallel(
-            filter=filter, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
-        ) as parallel_filter:
-            out_doc_iter = parallel_filter.imap_apply(input_doc_iter)
-            out_str_iter = (
-                (doc.text for doc in out_doc_iter)
-                if args.all
-                else (doc.text for doc in out_doc_iter if not doc.is_rejected)
-            )
-            writer(out_str_iter)
+        if isinstance(filter, hojichar.AsyncCompose):
+            logger.error("AsyncCompose is not currently supported.")
+            sys.exit(1)
+        elif isinstance(filter, hojichar.Compose):
+            with Parallel(
+                filter=filter, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
+            ) as parallel_filter:
+                out_doc_iter = parallel_filter.imap_apply(input_doc_iter)
+                out_str_iter = (
+                    (doc.text for doc in out_doc_iter)
+                    if args.all
+                    else (doc.text for doc in out_doc_iter if not doc.is_rejected)
+                )
+                writer(out_str_iter)
     finally:
         input_iter.pbar.close()
         if file_in:
