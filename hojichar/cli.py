@@ -1,19 +1,20 @@
 import argparse
-import asyncio
-import io
+import functools
 import json
 import logging
 import os
 import sys
-from typing import Iterator, Optional
+from typing import Callable, Iterator, Optional
 
 import tqdm
 
 import hojichar
 from hojichar.core.parallel import Parallel
-from hojichar.utils.async_handlers import fileout_from_async_iter
-from hojichar.utils.io_iter import stdin_iter
+from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
 from hojichar.utils.load_compose import load_compose
+
+MAIN_FILTER: hojichar.Compose
+CLI_ARGS: argparse.Namespace
 
 logger = logging.getLogger("hojichar.cli")
 
@@ -98,7 +99,7 @@ def argparser() -> argparse.Namespace:
     return args
 
 
-async def main() -> None:
+def main() -> None:
     file_in = None
     file_out = None
     args = argparser()
@@ -113,56 +114,34 @@ async def main() -> None:
     else:
         input_iter = ProgressBarIteratorWrapper(stdin_iter())
 
+    writer: Callable[[Iterator[str]], None]
     if args.output:
         file_out = open(args.output, "w")
+        writer = functools.partial(fileout_from_iter, file_out)
     else:
-        file_out = io.TextIOWrapper(
-            buffer=sys.stdout.buffer,
-            encoding="utf-8",
-            line_buffering=True,
-            errors="replace",
-        )
+        writer = stdout_from_iter
 
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
-    pipeline = load_compose(args.profile, *tuple(args.args))
-
+    filter = load_compose(args.profile, *tuple(args.args))
     try:
-        if isinstance(pipeline, hojichar.Compose):
-            with Parallel(
-                filter=pipeline, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
-            ) as parallel_filter:
-                out_doc_iter = parallel_filter.imap_apply(input_doc_iter)
-                out_str_iter = (
-                    (doc.text for doc in out_doc_iter)
-                    if args.all
-                    else (doc.text for doc in out_doc_iter if not doc.is_rejected)
-                )
-                for line in out_str_iter:
-                    file_out.write(line + "\n")
-        elif isinstance(pipeline, hojichar.AsyncCompose):
-            if args.jobs is not None and args.jobs > 1:
-                logger.warning(
-                    f"Warning: jobs={args.jobs} specified, but AsyncCompose does not support parallel execution."
-                )
-            async_out_doc_iter = pipeline.apply_stream(input_doc_iter)
-            async_out_str_iter = (
-                (doc.text async for doc in async_out_doc_iter)
+        with Parallel(
+            filter=filter, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
+        ) as parallel_filter:
+            out_doc_iter = parallel_filter.imap_apply(input_doc_iter)
+            out_str_iter = (
+                (doc.text for doc in out_doc_iter)
                 if args.all
-                else (doc.text async for doc in async_out_doc_iter if not doc.is_rejected)
+                else (doc.text for doc in out_doc_iter if not doc.is_rejected)
             )
-            await fileout_from_async_iter(file_out, async_out_str_iter)
+            writer(out_str_iter)
     finally:
         input_iter.pbar.close()
         if file_in:
             file_in.close()
-        if file_out and args.output:
+        if file_out:
             file_out.close()
-        if isinstance(pipeline, hojichar.Compose):
-            pipeline.shutdown()
-        elif isinstance(pipeline, hojichar.AsyncCompose):
-            await pipeline.shutdown()
 
-    stats = pipeline.statistics_obj
+    stats = filter.statistics_obj
     print(
         json.dumps(stats.get_human_readable_values(), ensure_ascii=False, indent=2),
         file=sys.stderr,
@@ -173,4 +152,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
