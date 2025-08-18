@@ -4,7 +4,7 @@ import asyncio
 import itertools
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import AsyncGenerator, AsyncIterable, Iterable, TypeVar
+from typing import AsyncGenerator, AsyncIterable, Iterable, TextIO, TypeVar
 
 T = TypeVar("T")
 
@@ -63,3 +63,16 @@ async def write_stream_to_file(
             await loop.run_in_executor(None, f.writelines, [s + delimiter for s in chunk])
             chunk = []
         await loop.run_in_executor(None, f.flush)
+
+
+async def fileout_from_async_iter(
+    fp: TextIO, iter: AsyncIterable[str], buffer_size: int = 128
+) -> None:
+    buffer = []
+    async for line in iter:
+        buffer.append(line + "\n")
+        if len(buffer) >= buffer_size:
+            await asyncio.to_thread(fp.write, "".join(buffer))
+            buffer.clear()
+    await asyncio.to_thread(fp.writelines, buffer)
+    buffer.clear()
