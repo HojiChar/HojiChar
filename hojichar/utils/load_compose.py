@@ -24,7 +24,9 @@ def _load_module(path: Union[str, PathLike]) -> ModuleType:
     return module
 
 
-def load_filter_from_file(profile_path: Union[str, PathLike]) -> hojichar.Compose:
+def load_filter_from_file(
+    profile_path: Union[str, PathLike],
+) -> hojichar.Compose | hojichar.AsyncCompose:
     """
     Loading a profile which has `FILTER` variable.
     Given path is added to sys.path automaticaly.
@@ -37,14 +39,14 @@ def load_filter_from_file(profile_path: Union[str, PathLike]) -> hojichar.Compos
         NotImplementedError:
 
     Returns:
-        hojichar.Compose:
+        hojichar.Compose | hojichar.AsyncCompose:
     """
     sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FILTER"):
         filter = getattr(module, "FILTER")
-        if not isinstance(filter, hojichar.Compose):
-            raise TypeError("FILTER must be hojichar.Compose object.")
+        if not isinstance(filter, (hojichar.Compose, hojichar.AsyncCompose)):
+            raise TypeError("FILTER must be Compose or AsyncCompose object.")
         return filter
     else:
         raise NotImplementedError("FILTER is not defined in the profile.")
@@ -52,7 +54,7 @@ def load_filter_from_file(profile_path: Union[str, PathLike]) -> hojichar.Compos
 
 def load_factory_from_file(
     profile_path: Union[str, PathLike],
-) -> Callable[[Optional[Any]], hojichar.Compose]:
+) -> Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose]:
     """
     Loading a function by a profile which has `FACTORY` variable.
     Given path is added to sys.path automaticaly.
@@ -64,13 +66,15 @@ def load_factory_from_file(
         NotImplementedError:
 
     Returns:
-        Callable[[Optional[Any]], hojichar.Compose]:
-            An alias of the function which returns Compose.
+        Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose]:
+            An alias of the function which returns Compose or AsyncCompose.
     """
     sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FACTORY"):
-        factory: Callable[[Optional[Any]], hojichar.Compose] = getattr(module, "FACTORY")
+        factory: Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose] = getattr(
+            module, "FACTORY"
+        )
         return factory
     else:
         raise NotImplementedError("FACTORY is not defined in the profile")
@@ -78,13 +82,15 @@ def load_factory_from_file(
 
 def load_parametrized_filter_from_file(
     profile_path: Union[str, PathLike], *factory_args: str
-) -> hojichar.Compose:
+) -> hojichar.Compose | hojichar.AsyncCompose:
     factory = load_factory_from_file(profile_path)
     filter = factory(*factory_args)
     return filter
 
 
-def load_compose(profile_path: Union[str, PathLike], *factroy_args: str) -> hojichar.Compose:
+def load_compose(
+    profile_path: Union[str, PathLike], *factory_args: str
+) -> hojichar.Compose | hojichar.AsyncCompose:
     """
     Loading a Compose file from profile. Loading a Compose file from the profile.
     Both `FILTER` and `FACTORY` pattern of the profile is loaded.
@@ -97,10 +103,10 @@ def load_compose(profile_path: Union[str, PathLike], *factroy_args: str) -> hoji
     """
     try:
         filter = load_filter_from_file(profile_path)
-        _check_args_num_mismatch(len(factroy_args))
+        _check_args_num_mismatch(len(factory_args))
         return filter
     except NotImplementedError:
-        return load_parametrized_filter_from_file(profile_path, *factroy_args)
+        return load_parametrized_filter_from_file(profile_path, *factory_args)
 
 
 def _check_args_num_mismatch(num_args: int) -> None:
