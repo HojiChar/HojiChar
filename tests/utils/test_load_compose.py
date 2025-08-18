@@ -53,7 +53,7 @@ def test_load_filter_from_file_typeerror(mock_dir):
     fpath = mock_dir / "mock_filter_typeerror.py"
     with pytest.raises(TypeError) as e:
         load_filter_from_file(fpath)
-    assert str(e.value) == "FILTER must be hojichar.Compose object."
+    assert str(e.value) == "FILTER must be Compose or AsyncCompose object."
 
 
 def test_load_factory_from_file_success(mock_dir):
@@ -115,3 +115,11 @@ def test_load_compose_factory(mock_dir):
 def test_check_args_num_mismatch(caplog):
     _check_args_num_mismatch(3)
     assert "Warning: 3 arguments are ignored." in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_load_parametrized_async_filter_0args(mock_dir):
+    fpath = mock_dir / "mock_async_factory_0args.py"
+    args = tuple([])
+    filter = load_parametrized_filter_from_file(fpath, *args)
+    assert await filter("") == "success"
