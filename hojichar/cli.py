@@ -169,7 +169,7 @@ async def _process_async(
     file_out: TextIO,
     args: argparse.Namespace,
 ) -> hojichar.StatsContainer:
-    async_out_doc_iter = pipeline.apply_stream(input_doc_iter)
+    async_out_doc_iter = (await pipeline.apply(doc) for doc in input_doc_iter)
     async_out_str_iter = (
         (doc.text async for doc in async_out_doc_iter)
         if args.all
