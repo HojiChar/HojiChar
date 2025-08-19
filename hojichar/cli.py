@@ -1,16 +1,17 @@
 import argparse
-import functools
+import asyncio
+import io
 import json
 import logging
 import os
 import sys
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator, Optional, TextIO
 
 import tqdm
 
 import hojichar
 from hojichar.core.parallel import Parallel
-from hojichar.utils.io_iter import fileout_from_iter, stdin_iter, stdout_from_iter
+from hojichar.utils.io_iter import stdin_iter
 from hojichar.utils.load_compose import load_compose
 
 MAIN_FILTER: hojichar.Compose
@@ -114,19 +115,23 @@ def main() -> None:
     else:
         input_iter = ProgressBarIteratorWrapper(stdin_iter())
 
-    writer: Callable[[Iterator[str]], None]
     if args.output:
         file_out = open(args.output, "w")
-        writer = functools.partial(fileout_from_iter, file_out)
     else:
-        writer = stdout_from_iter
+        file_out = io.TextIOWrapper(
+            buffer=sys.stdout.buffer,
+            encoding="utf-8",
+            line_buffering=True,
+        )
 
     input_doc_iter = (hojichar.Document(s) for s in input_iter)
     filter = load_compose(args.profile, *tuple(args.args))
     try:
         if isinstance(filter, hojichar.AsyncCompose):
-            logger.error("AsyncCompose is not currently supported.")
-            sys.exit(1)
+            if args.jobs is not None and args.jobs > 1:
+                logger.warning("AsyncCompose is not supported with multiple jobs.")
+            stats = asyncio.run(_process_async(filter, input_doc_iter, file_out, args))
+
         elif isinstance(filter, hojichar.Compose):
             with Parallel(
                 filter=filter, num_jobs=args.jobs, ignore_errors=not args.exit_on_error
@@ -137,7 +142,11 @@ def main() -> None:
                     if args.all
                     else (doc.text for doc in out_doc_iter if not doc.is_rejected)
                 )
-                writer(out_str_iter)
+                for line in out_str_iter:
+                    file_out.write(line + "\n")
+            stats = filter.statistics_obj
+        else:
+            raise TypeError(f"Unsupported filter type: {type(filter)}")
     finally:
         input_iter.pbar.close()
         if file_in:
@@ -145,7 +154,6 @@ def main() -> None:
         if file_out:
             file_out.close()
 
-    stats = filter.statistics_obj
     print(
         json.dumps(stats.get_human_readable_values(), ensure_ascii=False, indent=2),
         file=sys.stderr,
@@ -153,6 +161,35 @@ def main() -> None:
     if args.dump_stats:
         with open(args.dump_stats, "a") as fp:
             fp.write(json.dumps(stats.get_human_readable_values(), ensure_ascii=False) + "\n")
+
+
+async def _process_async(
+    pipeline: hojichar.AsyncCompose,
+    input_doc_iter: Iterator[hojichar.Document],
+    file_out: TextIO,
+    args: argparse.Namespace,
+) -> hojichar.StatsContainer:
+    async_out_doc_iter = pipeline.apply_stream(input_doc_iter)
+    async_out_str_iter = (
+        (doc.text async for doc in async_out_doc_iter)
+        if args.all
+        else (doc.text async for doc in async_out_doc_iter if not doc.is_rejected)
+    )
+
+    # Chunked output for better performance
+    buffer = []
+    buffer_size = 128
+    async for line in async_out_str_iter:
+        buffer.append(line + "\n")
+        if len(buffer) >= buffer_size:
+            file_out.write("".join(buffer))
+            buffer.clear()
+    if buffer:
+        file_out.write("".join(buffer))
+        buffer.clear()
+
+    await pipeline.shutdown()
+    return pipeline.statistics_obj
 
 
 if __name__ == "__main__":
