@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import sys
-from typing import Callable, Iterator, Optional, TextIO
+from typing import Iterator, Optional, TextIO
 
 import tqdm
 
