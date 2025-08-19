@@ -209,3 +209,19 @@ Line3
     hojichar_cmd = ["hojichar", "-p", test_profile, "--exit-on-error", "-j", "1"]
     process = subprocess.run(hojichar_cmd, input=input, capture_output=True, text=True)
     assert process.returncode == 1
+
+
+def test_cli_async_filter_profile(current_dir):
+    test_profile = current_dir / "fixtures/sample_async_profile.py"
+    test_input = current_dir / "fixtures/sample_in_100.jsonl"
+    test_output = current_dir / "fixtures/sample_out_100.jsonl"
+    # test_output_err = current_dir / "fixtures/sample_out_100_stderr.txt"
+
+    result = subprocess.run(
+        ["hojichar", "-p", test_profile, "-j", "1"],
+        input=open(test_input).read(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout == open(test_output).read()
