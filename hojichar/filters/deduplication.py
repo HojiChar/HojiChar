@@ -53,17 +53,28 @@ import sys
 from typing import Any, Callable, Final, Iterable, Optional
 
 import numpy as np
-import redis
-import xxhash
-from datasketch.lsh import _optimal_param  # type: ignore
-from nltk.util import ngrams  # type: ignore
 from numpy.typing import NDArray
-from rensa import RMinHash  # type: ignore
+
+try:
+    import redis
+    import xxhash
+    from datasketch.lsh import _optimal_param  # type: ignore
+    from nltk.util import ngrams  # type: ignore
+    from rensa import RMinHash  # type: ignore
+
+    is_loaded_dedup = True
+except ImportError:
+    is_loaded_dedup = False
+
 
 from hojichar import Document, Filter
 
 _japanese_tagger: Optional["fugashi.Tagger"] = None  # type: ignore[name-defined] # noqa: F821
 NON_ALPHA = re.compile("[^A-Za-z_0-9]")
+IS_LOADED_DEDUP_ERROR_MSG = (
+    "Failed to import redis, xxhash, rensa, or datasketch. "
+    "Please install the extra dependencies with `pip install 'hojichar[dedup]'`"
+)
 
 
 def char_level_splitter(text: str) -> list[str]:
@@ -138,6 +149,8 @@ class GenerateDedupLSH(Filter):
             **kwargs: Additional keyword arguments for parent Filter.
         """
         super().__init__(**kwargs)
+        if not is_loaded_dedup:
+            raise ImportError(IS_LOADED_DEDUP_ERROR_MSG)
         self.num_perm = num_perm
         self.threshold = threshold
         self.tokenizer = tokenizer
@@ -324,6 +337,8 @@ class RedisDeduplicator(Filter):
             key_prefix (str): Prefix for Redis keys to avoid collisions. You should use a unique prefix for each deduplication task.
             **kwargs: Additional keyword arguments for parent Filter.
         """
+        if not is_loaded_dedup:
+            raise ImportError(IS_LOADED_DEDUP_ERROR_MSG)
         super().__init__(**kwargs)
         self.rds = redis.Redis(host=host, port=port, db=db, decode_responses=False)
         self.key_prefix = key_prefix.encode()
@@ -387,6 +402,8 @@ class RedisBloomDeduplicator(Filter):
             num_bands (int | None): Number of bands to use for LSH to calculate the capacity of BloomFilter. If None, it will be set to 32.
             **kwargs: Additional keyword arguments for parent Filter.
         """
+        if not is_loaded_dedup:
+            raise ImportError(IS_LOADED_DEDUP_ERROR_MSG)
         super().__init__(**kwargs)
         self.rds = redis.Redis(host=host, port=port, db=db)
         self.key_prefix = key_prefix.encode()
