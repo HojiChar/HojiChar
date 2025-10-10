@@ -5,13 +5,28 @@ import logging
 import os
 from typing import Any, Callable, Iterable
 
-import httpx
-from openai import AsyncOpenAI, DefaultAioHttpClient
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionMessageParam,
-)
-from tenacity import AsyncRetrying, before_sleep_log, stop_after_attempt, wait_random_exponential
+try:
+    import httpx
+    from openai import AsyncOpenAI, DefaultAioHttpClient
+    from openai.types.chat import (
+        ChatCompletion,
+        ChatCompletionMessageParam,
+    )
+    from tenacity import (
+        AsyncRetrying,
+        before_sleep_log,
+        stop_after_attempt,
+        wait_random_exponential,
+    )
+
+    is_loaded_openai = True
+except ImportError as e:
+    is_loaded_openai = False
+    import_error_msg = (
+        "Failed to import openai or httpx. "
+        "Please install the extra dependencies with `pip install 'hojichar[openai]'`"
+    )
+    raise ImportError(import_error_msg) from e
 
 from hojichar import AsyncFilter, Document
 
