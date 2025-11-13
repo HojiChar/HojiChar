@@ -118,16 +118,22 @@ class Compose(Filter):
             stream = filt.apply_stream(stream)
 
         for doc in stream:
-            in_stat = doc.extras["__init_stats"]
+            in_stat = doc._get_initial_stats()
+            if in_stat is None:
+                in_stat = get_doc_info(doc)
+                self.logger.debug(
+                    "Initial stats missing for document during stream aggregation; "
+                    "using current stats as fallback"
+                )
             out_stat = get_doc_info(doc)
 
             self._statistics.update_by_diff(in_stat, out_stat)
-            del doc.extras["__init_stats"]
+            doc._clear_initial_stats()
             yield doc
 
     def _count_input_stats(self, stream: Iterable[Document]) -> Iterable[Document]:
         for doc in stream:
-            doc.extras["__init_stats"] = get_doc_info(doc)
+            doc._set_initial_stats(get_doc_info(doc))
             yield doc
 
     def get_total_statistics(self) -> List[Statistics]:

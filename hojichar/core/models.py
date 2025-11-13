@@ -35,6 +35,8 @@ class Document:
         extras (Dict[str, Any]): A dictionary to store additional metadata about the document.
         reject_reason (Dict[str, Any]): A dictionary to store the reason for rejection. The
           filter class and the member name and value will logged at the filter is logged here.
+        initial_stats (Optional[Dict[str, Any]]): Internal copy of the document statistics
+          captured before the pipeline mutates the document.
 
     Next attributes will be deprecated in future versions:
         tokens (List[Token]): A list of tokens extracted from the document.
@@ -61,10 +63,34 @@ class Document:
             self.extras = extras
 
         self.reject_reason: Dict[str, Any] = {}
+        self._initial_stats: Optional[dict[str, Any]] = None
+        if "__init_stats" in self.extras:
+            self._initial_stats = self.extras.pop("__init_stats")
 
     @property
     def original(self) -> str:
         return self.__original
+
+    def _set_initial_stats(self, stats: dict[str, Any]) -> None:
+        """
+        Store the document statistics captured before the pipeline modifies the document.
+        Internal API: not intended for filter implementations.
+        """
+        self._initial_stats = stats
+
+    def _get_initial_stats(self) -> Optional[dict[str, Any]]:
+        """
+        Retrieve the stored initial statistics of the document, if available.
+        Internal API: not intended for filter implementations.
+        """
+        return self._initial_stats
+
+    def _clear_initial_stats(self) -> None:
+        """
+        Remove the stored initial statistics. Useful after the stats are consumed.
+        Internal API: not intended for filter implementations.
+        """
+        self._initial_stats = None
 
     @deprecated_since("1.0.0")
     def set_tokens(self, tokens: List[str]) -> None:

@@ -84,6 +84,31 @@ The filters used in the pipeline are predefined filters found in [`hojichar.filt
 
 While HojiChar provides some fundamental text processing filters and plans to add more in the future, users can also define their custom filters.
 
+## Working with Metadata
+
+JSONL corpora often store useful metadata alongside the text itself. `JSONLoader` and `JSONDumper` make it easy to keep that information with the document through the entire pipeline:
+
+- `JSONLoader` automatically merges any `extras` dictionary present in the input JSON into `Document.extras`. When you pass `extra_keys=["url", "title"]`, those fields are copied as well, so metadata survives even if new extras are added later in the pipeline.
+- Filters can freely append to `document.extras` (for example, to record trace information or filter outcomes).
+- `JSONDumper(export_extras=True)` writes the current `Document.extras` back into the output JSON, making round-tripping metadata straightforward.
+
+```python
+from hojichar import Compose, document_filters
+
+pipeline = Compose(
+    [
+        document_filters.JSONLoader(extra_keys=["url"]),
+        document_filters.DocumentNormalizer(),
+        document_filters.JSONDumper(export_extras=True),
+    ]
+)
+
+>>> pipeline('{"text": " Hello ", "extras": {"source": "blog"}, "url": "https://example.com"}')
+{"text": "Hello", "extras": {"source": "blog", "url": "https://example.com"}}
+```
+
+In this example, the loader keeps both the embedded `extras` and the `url` field, later filters can enrich `document.extras`, and the dumper emits everything for downstream consumers.
+
 ## User-defined Filters
 
 A filter composing a [`Compose`](https://hojichar.github.io/HojiChar/hojichar.html#Compose) object is a class that inherits the [`Filter`](https://hojichar.github.io/HojiChar/hojichar.html#Filter) class and implements the text processing within the `apply` function.

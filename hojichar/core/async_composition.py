@@ -139,18 +139,24 @@ class AsyncCompose(AsyncFilter):
             async_stream = filt.apply_stream(async_stream)
 
         async for doc in async_stream:
-            in_stat = doc.extras["__init_stats"]
+            in_stat = doc._get_initial_stats()
+            if in_stat is None:
+                in_stat = get_doc_info(doc)
+                self.logger.debug(
+                    "Initial stats missing for document during async stream aggregation; "
+                    "using current stats as fallback"
+                )
             out_stat = get_doc_info(doc)
             async with self._stats_lock:
                 self._statistics.update_by_diff(in_stat, out_stat)
-            del doc.extras["__init_stats"]
+            doc._clear_initial_stats()
             yield doc
 
     async def _count_input_stats(
         self, async_stream: AsyncIterable[Document]
     ) -> AsyncGenerator[Document, None]:
         async for doc in async_stream:
-            doc.extras["__init_stats"] = get_doc_info(doc)
+            doc._set_initial_stats(get_doc_info(doc))
             yield doc
 
     def get_total_statistics(self) -> list[Statistics]:
