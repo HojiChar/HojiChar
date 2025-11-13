@@ -222,7 +222,7 @@ class JSONDumper(Filter):
         text = document.text
         if self.dump_reason:
             if self.export_extras:
-                output_extras = {k: v for k, v in document.extras.items() if k != "__init_stats"}
+                output_extras = dict(document.extras)
                 document.text = json.dumps(
                     {
                         "text": text,
@@ -243,7 +243,7 @@ class JSONDumper(Filter):
                 )
         else:
             if self.export_extras:
-                output_extras = {k: v for k, v in document.extras.items() if k != "__init_stats"}
+                output_extras = dict(document.extras)
                 document.text = json.dumps(
                     {
                         "text": text,
