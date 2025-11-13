@@ -138,6 +138,10 @@ class JSONLoader(Filter):
     Json の読み込み, あるいは `key` の読み込みに失敗した際には例外を送出します.
     これらを無視する場合は, `ignore=True` にします. その際, 読み込みに失敗
     したドキュメントは破棄されます.
+
+    入力 Json に `extras` キー(辞書形式)が含まれている場合, Document.extras に自動的にマージされます。
+    さらに `extra_keys` でフィールドを指定すると, それらの値も Document.extras に追記され, 既存の extras
+    を上書きせずに統合できます。
     """
 
     def __init__(
@@ -174,8 +178,16 @@ class JSONLoader(Filter):
         try:
             data = json.loads(document.text)
             document.text = str(data[self.key])
+            if "extras" in data and isinstance(data["extras"], dict):
+                document.extras.update(data["extras"])
             if self.extra_keys is not None:
-                document.extras = {key: data[key] for key in self.extra_keys if key in data}
+                for key in self.extra_keys:
+                    if key not in data:
+                        continue
+                    if key == "extras" and isinstance(data[key], dict):
+                        document.extras.update(data[key])
+                    else:
+                        document.extras[key] = data[key]
         except Exception as e:
             logger.error(f"Failed to parsing in JSONLoader. Input document: \n{document.text}")
             if self.ignore:
