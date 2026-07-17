@@ -60,7 +60,11 @@ class Parallel:
     """
 
     def __init__(
-        self, filter: hojichar.Compose, num_jobs: int | None = None, ignore_errors: bool = False
+        self,
+        filter: hojichar.Compose,
+        num_jobs: int | None = None,
+        ignore_errors: bool = False,
+        ordered: bool = False,
     ):
         """
         Initializes a new instance of the Parallel class.
@@ -80,10 +84,14 @@ class Parallel:
                 stop the processing of further documents. If set to False, the first
                 exception thrown will terminate the entire parallel processing operation.
                 Defaults to False.
+            ordered (bool, optional): If set to True, processed documents are yielded in
+                the same order as the input documents. If set to False, documents are
+                yielded as soon as their processing completes. Defaults to False.
         """
         self.filter = filter
         self.num_jobs = num_jobs
         self.ignore_errors = ignore_errors
+        self.ordered = ordered
 
         self._pool: Pool | None = None
         self._pid_stats: dict[int, List[Statistics]] | None = None
@@ -119,7 +127,12 @@ class Parallel:
                 "Parallel instance not properly initialized. Use within a 'with' statement."
             )
         try:
-            for doc, pid, stat, err_msg in self._pool.imap_unordered(_worker, docs):
+            results = (
+                self._pool.imap(_worker, docs)
+                if self.ordered
+                else self._pool.imap_unordered(_worker, docs)
+            )
+            for doc, pid, stat, err_msg in results:
                 self._pid_stats[pid] = stat
                 if err_msg is not None:
                     logger.error(f"Error in worker {pid}: {err_msg}")
