@@ -194,7 +194,7 @@ class AsyncFilter(ABC):
                 target.reject_reason = {"error": msg}
                 async with self._stats_lock:
                     self._statistics.errors += 1
-                return target  # type: ignore[return-value]
+                return target
             if isinstance(target, list):
                 msg = f"{e!r} occurs while batch processing {self.name}"
                 self.logger.error(msg, exc_info=True)
@@ -203,7 +203,7 @@ class AsyncFilter(ABC):
                     doc.reject_reason = {"error": msg}
                 async with self._stats_lock:
                     self._statistics.errors += len(target)
-                return target  # type: ignore[return-value]
+                return target
             raise e
 
     async def __call__(self, text: str) -> str:

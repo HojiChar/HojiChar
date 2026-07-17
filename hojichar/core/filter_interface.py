@@ -238,7 +238,7 @@ class Filter(ABC):
                 target.reject_reason = {"error": msg}
                 self._statistics.errors += 1
                 self.logger.error(msg, exc_info=True)
-                return target  # type: ignore[return-value]
+                return target
             if isinstance(target, list):
                 msg = f"{e!r} occurs while batch processing {self.name}"
                 self.logger.error(msg, exc_info=True)
@@ -246,7 +246,7 @@ class Filter(ABC):
                     doc.is_rejected = True
                     doc.reject_reason = {"error": msg}
                 self._statistics.errors += len(target)
-                return target  # type: ignore[return-value]
+                return target
             else:
                 raise e
 
