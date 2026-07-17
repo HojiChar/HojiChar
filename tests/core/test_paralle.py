@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import time
+from multiprocessing.pool import Pool
+from unittest.mock import Mock
 
 import pytest
 
@@ -60,8 +62,7 @@ def test_processed_docs_equality(num_jobs: int | None) -> None:
         assert set(str(s) for s in processed_docs) == set(str(s) for s in documents)
 
 
-@pytest.mark.parametrize("ordered", [False, True])
-def test_parallel_ordering(ordered: bool) -> None:
+def test_parallel_preserves_input_order_when_ordered() -> None:
     documents = [
         hojichar.Document("0.2:slow"),
         hojichar.Document("0:fast-1"),
@@ -69,15 +70,33 @@ def test_parallel_ordering(ordered: bool) -> None:
     ]
     filter = hojichar.Compose([DelayFilter()])
 
-    with Parallel(filter, num_jobs=3, ordered=ordered) as pfilter:
+    with Parallel(filter, num_jobs=3, ordered=True) as pfilter:
         processed_docs = list(pfilter.imap_apply(iter(documents)))
 
-    texts = [doc.text for doc in processed_docs]
-    if ordered:
-        assert texts == ["slow", "fast-1", "fast-2"]
-    else:
-        assert texts[0] != "slow"
-        assert set(texts) == {"slow", "fast-1", "fast-2"}
+    assert [doc.text for doc in processed_docs] == ["slow", "fast-1", "fast-2"]
+
+
+@pytest.mark.parametrize(
+    ("ordered", "expected_method", "unexpected_method"),
+    [
+        (False, "imap_unordered", "imap"),
+        (True, "imap", "imap_unordered"),
+    ],
+)
+def test_parallel_selects_pool_iterator(
+    ordered: bool, expected_method: str, unexpected_method: str
+) -> None:
+    pool = Mock(spec=Pool)
+    pool.imap.return_value = iter([])
+    pool.imap_unordered.return_value = iter([])
+
+    pfilter = Parallel(hojichar.Compose([]), ordered=ordered)
+    pfilter._pool = pool
+    pfilter._pid_stats = {}
+
+    assert list(pfilter.imap_apply(iter([]))) == []
+    getattr(pool, expected_method).assert_called_once()
+    getattr(pool, unexpected_method).assert_not_called()
 
 
 @pytest.mark.parametrize("num_jobs", [1, 4, None])
