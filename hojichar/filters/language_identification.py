@@ -135,9 +135,12 @@ class LanguageIdentificationByFastText(Filter):
         # fasttext cannot handle multiline input
         # so we must remove the newline character
         text = text.strip().replace("\n", " ")
-        pred = self.model.predict(text)
-        pred_lang = pred[0][0].replace("__label__", "")
-        pred_score = pred[1][0]
+        # The single-string path in fasttext 0.9.3 uses
+        # np.array(..., copy=False), which is incompatible with NumPy 2.
+        # The documented batch path avoids that conversion.
+        labels, scores = self.model.predict([text])
+        pred_lang = labels[0][0].replace("__label__", "")
+        pred_score = scores[0][0]
         return pred_lang, pred_score
 
     def apply(self, doc: Document) -> Document:

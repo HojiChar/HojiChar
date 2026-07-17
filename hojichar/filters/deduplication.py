@@ -50,7 +50,7 @@ from __future__ import annotations
 import importlib
 import re
 import sys
-from typing import Any, Callable, Final, Iterable, Optional
+from typing import Any, Callable, Final, Iterable, Optional, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -197,10 +197,10 @@ class GenerateDedupLSH(Filter):
         """
         if sys.byteorder == "little":
             # amd64 / arm64 (little)
-            return memoryview(sig).cast("B")  # type: ignore[arg-type]  # zero-copy
+            return memoryview(cast(Any, sig)).cast("B")  # zero-copy
         else:
             # big-endian CPU
-            return memoryview(sig.byteswap()).cast("B")  # type: ignore[arg-type] # 1 copy
+            return memoryview(cast(Any, sig.byteswap())).cast("B")  # 1 copy
 
     def signature_to_lsh_digest(
         self, signature: NDArray[np.uint32], band_size: int, band_idx: int
