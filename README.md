@@ -375,6 +375,8 @@ with hojichar.Parallel(cleaner, num_jobs=10) as pfilter:
 
 - Always use the `Parallel` class within a `with` statement.
 - `Parallel.imap_apply(doc_iter)` processes an iterator of `Document` and returns an iterator of the processed documents.
+- By default, processed documents are yielded as soon as they complete. Pass `ordered=True`
+  to `Parallel` to yield them in the same order as the input documents.
 - For additional options and details about the `Parallel` class, please refer to the official documentation.
 
 ## CLI tool and preprocessing profile

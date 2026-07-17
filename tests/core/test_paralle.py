@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 
@@ -31,6 +32,14 @@ class DummyAppendFilter(hojichar.Filter):
         return document
 
 
+class DelayFilter(hojichar.Filter):
+    def apply(self, document: hojichar.Document) -> hojichar.Document:
+        delay, text = document.text.split(":", maxsplit=1)
+        time.sleep(float(delay))
+        document.text = text
+        return document
+
+
 @pytest.mark.parametrize("num_jobs", [1, 4, None])
 def test_processed_docs_count(num_jobs: int | None) -> None:
     documents = [hojichar.Document(json.dumps({"text": f"doc_{i}"})) for i in range(10)]
@@ -49,6 +58,26 @@ def test_processed_docs_equality(num_jobs: int | None) -> None:
     with Parallel(filter, num_jobs=num_jobs) as pfilter:
         processed_docs = list(pfilter.imap_apply(iter(documents)))
         assert set(str(s) for s in processed_docs) == set(str(s) for s in documents)
+
+
+@pytest.mark.parametrize("ordered", [False, True])
+def test_parallel_ordering(ordered: bool) -> None:
+    documents = [
+        hojichar.Document("0.2:slow"),
+        hojichar.Document("0:fast-1"),
+        hojichar.Document("0:fast-2"),
+    ]
+    filter = hojichar.Compose([DelayFilter()])
+
+    with Parallel(filter, num_jobs=3, ordered=ordered) as pfilter:
+        processed_docs = list(pfilter.imap_apply(iter(documents)))
+
+    texts = [doc.text for doc in processed_docs]
+    if ordered:
+        assert texts == ["slow", "fast-1", "fast-2"]
+    else:
+        assert texts[0] != "slow"
+        assert set(texts) == {"slow", "fast-1", "fast-2"}
 
 
 @pytest.mark.parametrize("num_jobs", [1, 4, None])
