@@ -4,7 +4,7 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/hojichar.svg)](https://pypi.org/project/hojichar/)
 [![CI wowkflow](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml/badge.svg)](https://github.com/HojiChar/HojiChar/actions/workflows/ci.yaml)
 [![codecov](https://codecov.io/gh/HojiChar/HojiChar/branch/main/graph/badge.svg?token=16928I9U9Y)](https://codecov.io/gh/HojiChar/HojiChar)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/hojichar)
+![PyPI Downloads](https://img.shields.io/pypi/dm/hojichar)
 
 
 Official docs: <https://hojichar.github.io/HojiChar/hojichar.html>
