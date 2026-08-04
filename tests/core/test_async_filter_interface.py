@@ -162,13 +162,35 @@ async def test_apply_stream_uses_sliding_window():
     assert (await asyncio.wait_for(first_output, timeout=1)).text == "0"
 
     # The next item starts without waiting for every item in the original window.
+    second_output = asyncio.create_task(stream.__anext__())
     await asyncio.wait_for(f.started[2].wait(), timeout=1)
     assert not f.release[1].is_set()
     assert f.max_active == 2
 
     f.release[1].set()
+    assert (await asyncio.wait_for(second_output, timeout=1)).text == "1"
     f.release[2].set()
-    assert [doc.text async for doc in stream] == ["1", "2"]
+    assert [doc.text async for doc in stream] == ["2"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ordered", [True, False])
+async def test_apply_stream_does_not_wait_to_fill_window_from_async_source(ordered):
+    release_second = asyncio.Event()
+
+    async def source():
+        yield Document("first")
+        await release_second.wait()
+        yield Document("second")
+
+    f = UppercaseFilter(batch_size=2, ordered=ordered)
+    stream = f.apply_stream(source())
+
+    first = await asyncio.wait_for(stream.__anext__(), timeout=1)
+    assert first.text == "FIRST"
+
+    release_second.set()
+    assert [doc.text async for doc in stream] == ["SECOND"]
 
 
 @pytest.mark.asyncio
