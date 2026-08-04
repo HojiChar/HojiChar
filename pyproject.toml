@@ -87,6 +87,13 @@ explicit = true
 line-length = 99
 
 [tool.ruff.lint]
+# Ruff 0.16 expanded its defaults; keep the project's established baseline explicit.
+select = [
+  "E4",  # pycodestyle import errors
+  "E7",  # pycodestyle statement errors
+  "E9",  # pycodestyle runtime errors
+  "F",   # Pyflakes
+]
 extend-select = [
   "I",   # isort
   "N",   # pep8-naming
