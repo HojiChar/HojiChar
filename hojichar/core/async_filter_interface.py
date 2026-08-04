@@ -61,7 +61,9 @@ class AsyncFilter(ABC):
         batch_size : int
             The size of the batch to process documents in the `apply_stream` method.
             When `apply_batch` is not overridden, this is also the maximum number of
-            in-flight document tasks used by the sliding-window scheduler.
+            in-flight document tasks used by the sliding-window scheduler. Ordered
+            processing applies backpressure after at most two windows of started but
+            not yet yielded documents.
         ordered : bool
             If `True`, `apply_stream` yields documents in input order. If `False`, filters
             using the default `apply_batch` implementation yield documents as soon as their
@@ -215,8 +217,29 @@ class AsyncFilter(ABC):
         completed_results: dict[int, Document] = {}
         next_input_index = 0
         next_output_index = 0
-        source_task: asyncio.Task[Document] | None = asyncio.create_task(next_document())
+        source_task: asyncio.Task[Document] | None = None
         source_exhausted = False
+
+        # Keep one window of completed out-of-order results in addition to the active
+        # window. This absorbs ordinary latency variation without allowing a stalled
+        # early document to make the scheduler consume an unbounded input stream.
+        ordered_backlog_limit = self.batch_size * 2
+
+        def schedule_next_document_if_possible() -> None:
+            nonlocal source_task
+
+            if source_exhausted or source_task is not None:
+                return
+            if len(pending) >= self.batch_size:
+                return
+            if (
+                self.ordered
+                and len(pending) + len(completed_results) >= ordered_backlog_limit
+            ):
+                return
+            source_task = asyncio.create_task(next_document())
+
+        schedule_next_document_if_possible()
         try:
             while source_task is not None or pending:
                 wait_for = set(pending)
@@ -252,12 +275,7 @@ class AsyncFilter(ABC):
                     else:
                         newly_completed.append(result)
 
-                if (
-                    not source_exhausted
-                    and source_task is None
-                    and len(pending) < self.batch_size
-                ):
-                    source_task = asyncio.create_task(next_document())
+                schedule_next_document_if_possible()
 
                 if self.ordered:
                     while next_output_index in completed_results:
@@ -266,6 +284,9 @@ class AsyncFilter(ABC):
                 else:
                     for result in newly_completed:
                         yield result
+
+                # Yielding ordered results may be what frees backlog capacity.
+                schedule_next_document_if_possible()
         finally:
             remaining = list(pending)
             if source_task is not None:

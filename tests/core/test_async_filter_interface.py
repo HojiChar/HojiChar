@@ -205,6 +205,35 @@ async def test_ordered_apply_stream_refills_when_later_tasks_finish():
 
 
 @pytest.mark.asyncio
+async def test_ordered_apply_stream_bounds_completed_result_backlog():
+    docs = [Document(text=str(i)) for i in range(8)]
+    f = ControlledFilter(count=8, batch_size=2)
+    stream = f.apply_stream(docs)
+
+    first_output = asyncio.create_task(stream.__anext__())
+    await asyncio.wait_for(f.started[0].wait(), timeout=1)
+    await asyncio.wait_for(f.started[1].wait(), timeout=1)
+
+    # Keep the first item blocked while later items finish. One additional window
+    # may be buffered to absorb ordinary latency variation, but input must then
+    # stop until ordered output can advance.
+    for index in range(1, 4):
+        f.release[index].set()
+        if index < 3:
+            await asyncio.wait_for(f.started[index + 1].wait(), timeout=1)
+
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(f.started[4].wait(), timeout=0.05)
+    assert not first_output.done()
+
+    for release in f.release:
+        release.set()
+    first = await asyncio.wait_for(first_output, timeout=1)
+    outputs = [first, *[doc async for doc in stream]]
+    assert [doc.text for doc in outputs] == [str(i) for i in range(8)]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("ordered", [True, False])
 async def test_apply_stream_does_not_wait_to_fill_window_from_async_source(ordered):
     release_second = asyncio.Event()
