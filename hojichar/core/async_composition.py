@@ -12,7 +12,11 @@ from hojichar.core.async_filter_interface import AsyncFilter
 from hojichar.core.composition import Compose
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document, Statistics, get_doc_info
-from hojichar.utils.async_handlers import handle_stream_as_async
+from hojichar.utils.async_handlers import (
+    AsyncToSyncIterator,
+    handle_async_stream_as_sync,
+    handle_stream_as_async,
+)
 
 
 class AsyncFilterAdapter(AsyncFilter):
@@ -151,6 +155,27 @@ class AsyncCompose(AsyncFilter):
                 self._statistics.update_by_diff(in_stat, out_stat)
             doc._clear_initial_stats()
             yield doc
+
+    def imap_apply(
+        self,
+        stream: AsyncIterable[Document] | Iterable[Document],
+        *,
+        buffer_size: int = 128,
+        shutdown: bool = True,
+    ) -> AsyncToSyncIterator[Document]:
+        """Synchronously consume this asynchronous pipeline.
+
+        The returned iterator runs the pipeline on a dedicated background event loop. It is
+        intended for one-shot use and shuts down the pipeline after consumption by default.
+        Use the iterator as a context manager if iteration may stop early.
+        """
+
+        finalizer = self.shutdown if shutdown else None
+        return handle_async_stream_as_sync(
+            self.apply_stream(stream),
+            buffer_size=buffer_size,
+            finalizer=finalizer,
+        )
 
     async def _count_input_stats(
         self, async_stream: AsyncIterable[Document]

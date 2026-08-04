@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -188,6 +189,32 @@ async def test_statistics_after_apply():
     assert total.diff_bytes == expected_total_diff
     assert total.input_num == 1
     assert total.output_bytes == after_len
+
+
+def test_imap_apply_from_synchronous_code():
+    comp = AsyncCompose(filters=[AsyncUpperFilter(use_batch=False)])
+    executor = comp._executor
+
+    outputs = list(comp.imap_apply([Document("a"), Document("b")], buffer_size=1))
+
+    assert [doc.text for doc in outputs] == ["A", "B"]
+    with pytest.raises(RuntimeError):
+        executor.submit(lambda: None)
+
+
+def test_imap_apply_early_close_shuts_down_pipeline():
+    async def source():
+        yield Document("a")
+        await asyncio.Event().wait()
+
+    comp = AsyncCompose(filters=[AsyncUpperFilter(use_batch=False)])
+    executor = comp._executor
+
+    with comp.imap_apply(source()) as outputs:
+        assert next(outputs).text == "A"
+
+    with pytest.raises(RuntimeError):
+        executor.submit(lambda: None)
 
 
 @pytest.mark.asyncio
