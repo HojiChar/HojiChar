@@ -4,14 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
+import hojichar.async_filters.openai as openai_module
 from hojichar.async_filters.openai import AsyncChatAPI
 from hojichar.core.models import Document
-
-
-# Disable actual API health checks
-@pytest.fixture(autouse=True)
-def disable_api_check(monkeypatch):
-    monkeypatch.setattr(AsyncChatAPI, "check_api_alive", lambda self, endpoint_url, model_id: None)
 
 
 # Helper to create a dummy ChatCompletion-like response
@@ -92,26 +87,14 @@ async def test_apply_no_choices_raises():
         await api.apply(doc)
 
 
-@pytest.mark.asyncio
-async def test_retry_mechanism(monkeypatch):
-    doc = Document(text="Retry test")
-    calls = []
-
-    async def fake_create(*args, **kwargs):
-        # Fail first two calls, succeed on third
-        calls.append(1)
-        if len(calls) < 3:
-            raise Exception("Temporary failure")
-        return DummyChatCompletion(choices=[DummyChoice(DummyMessage("Done"))])
-
+def test_retry_count_is_delegated_to_openai_sdk():
     api = AsyncChatAPI(model_id="retry-model", retry_count=5)
-    api._openai_client = SimpleNamespace(
-        chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
-    )
+    assert api._openai_client.max_retries == 4
 
-    result = await api.apply(doc)
-    assert result.extras["llm_output"] == "Done"
-    assert len(calls) == 3
+
+def test_retry_count_must_include_initial_attempt():
+    with pytest.raises(ValueError, match="retry_count must be at least 1"):
+        AsyncChatAPI(model_id="retry-model", retry_count=0)
 
 
 @pytest.mark.asyncio
@@ -129,3 +112,65 @@ async def test_custom_output_key(monkeypatch):
     out = await api.apply(doc)
     assert "custom_key" in out.extras
     assert out.extras["custom_key"] == "X"
+
+
+def test_constructor_does_not_check_api(monkeypatch):
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("constructor must not perform an API check")
+
+    monkeypatch.setattr(AsyncChatAPI, "check_api_alive", fail_if_called)
+    AsyncChatAPI(model_id="m")
+
+
+def test_explicit_endpoint_takes_precedence_over_environment(monkeypatch):
+    monkeypatch.setenv("OPENAI_ENDPOINT_URL", "https://environment.example/v1")
+    api = AsyncChatAPI(
+        model_id="m",
+        openai_endpoint_url="https://explicit.example/v1",
+    )
+    assert str(api._openai_client.base_url) == "https://explicit.example/v1/"
+
+
+@pytest.mark.asyncio
+async def test_validate_api_success():
+    async def fake_list():
+        return SimpleNamespace(data=[SimpleNamespace(id="m")])
+
+    api = AsyncChatAPI(model_id="m")
+    api._openai_client = SimpleNamespace(models=SimpleNamespace(list=fake_list))
+    await api.validate_api()
+
+
+@pytest.mark.asyncio
+async def test_validate_api_model_not_found():
+    async def fake_list():
+        return SimpleNamespace(data=[SimpleNamespace(id="another-model")])
+
+    api = AsyncChatAPI(model_id="m")
+    api._openai_client = SimpleNamespace(models=SimpleNamespace(list=fake_list))
+    with pytest.raises(ValueError, match="Model 'm' not found"):
+        await api.validate_api()
+
+
+def test_check_api_alive_is_deprecated(monkeypatch):
+    class DummyResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [{"id": "m"}]}
+
+    class DummyClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url):
+            return DummyResponse()
+
+    monkeypatch.setattr(openai_module.httpx, "Client", DummyClient)
+    api = AsyncChatAPI(model_id="m")
+    with pytest.warns(DeprecationWarning, match="validate_api"):
+        api.check_api_alive(endpoint_url="https://example.test/v1", model_id="m")

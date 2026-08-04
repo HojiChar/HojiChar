@@ -32,8 +32,7 @@ all = [
     "requests>=2.32.3,<3",
 ]
 openai = [
-    "openai[aiohttp]>=1.89.0",
-    "tenacity>=9.1.2"
+    "openai[aiohttp]>=1.89.0"
     ]
 dedup = [
     "datasketch>=1.6.5",

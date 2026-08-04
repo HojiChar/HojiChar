@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 from typing import Any, Callable, Iterable
 
@@ -12,13 +11,6 @@ try:
         ChatCompletion,
         ChatCompletionMessageParam,
     )
-    from tenacity import (
-        AsyncRetrying,
-        before_sleep_log,
-        stop_after_attempt,
-        wait_random_exponential,
-    )
-
     is_loaded_openai = True
 except ImportError as e:
     is_loaded_openai = False
@@ -29,6 +21,7 @@ except ImportError as e:
     raise ImportError(import_error_msg) from e
 
 from hojichar import AsyncFilter, Document
+from hojichar.utils.warn_deprecation import deprecated_since
 
 DEFAULT_OPENAI_ENDPOINT_URL = "https://api.openai.com/v1"
 
@@ -66,12 +59,20 @@ class AsyncChatAPI(AsyncFilter):
             openai_endpoint_url (str | None): The URL of the OpenAI-compatible API endpoint. If not set, it will use the `OPENAI_ENDPOINT_URL` environment variable.
             message_generator: A callable that generates the messages to be sent to the API from Document class. The generated value is inserted into the `messages` parameter of the OpenAI API request. e.g. `lambda doc: [{"system": "You are awesome assistant."}, {"role": "user", "content": doc.text}]`.
             timeout (httpx.Timeout | None): The timeout settings for the HTTP client. If not set, it will use httpx.Timeout(connect=5.0, write=30, read=180, pool=30)
+            retry_count (int): The maximum number of attempts for each API request, including the initial request. Retries are handled by the OpenAI SDK.
             api_kwargs (dict[str, Any] | None): Additional keyword arguments to pass to the OpenAI API request.
+
+        Notes:
+            Constructing this filter does not perform network I/O. To validate the endpoint and
+            model explicitly, call `await validate_api()` after construction.
         """
         super().__init__(**kwargs)
 
+        if retry_count < 1:
+            raise ValueError("retry_count must be at least 1")
+
         self.model_id = model_id
-        endpoint_url = os.getenv("OPENAI_ENDPOINT_URL", openai_endpoint_url)
+        endpoint_url = openai_endpoint_url or os.getenv("OPENAI_ENDPOINT_URL")
         if endpoint_url is None:
             msg = (
                 "OPENAI_ENDPOINT_URL environment variable is not set. "
@@ -79,11 +80,11 @@ class AsyncChatAPI(AsyncFilter):
             )
             self.logger.warning(msg)
             endpoint_url = DEFAULT_OPENAI_ENDPOINT_URL
+        self.endpoint_url = endpoint_url
 
         self.api_kwargs = api_kwargs or {}
         self.output_key = output_key
         self.message_generator = message_generator
-        self._retry_count = retry_count
 
         self._semaphore = asyncio.Semaphore(max_concurrent_requests)
 
@@ -108,27 +109,16 @@ class AsyncChatAPI(AsyncFilter):
             api_key=_api_key,
             base_url=endpoint_url,
             http_client=self._http_client,
-        )
-
-        self.check_api_alive(
-            endpoint_url=endpoint_url,
-            model_id=model_id,
+            max_retries=retry_count - 1,
         )
 
     async def apply(self, document: Document) -> Document:
-        async for attempt in AsyncRetrying(
-            reraise=True,
-            wait=wait_random_exponential(multiplier=1, max=5.0),
-            stop=stop_after_attempt(self._retry_count),
-            before_sleep=before_sleep_log(self.logger, logging.WARNING),
-        ):
-            with attempt:
-                async with self._semaphore:
-                    response: ChatCompletion = await self._openai_client.chat.completions.create(
-                        model=self.model_id,
-                        messages=self.message_generator(document),  # type: ignore
-                        **self.api_kwargs,
-                    )
+        async with self._semaphore:
+            response: ChatCompletion = await self._openai_client.chat.completions.create(
+                model=self.model_id,
+                messages=self.message_generator(document),  # type: ignore
+                **self.api_kwargs,
+            )
 
         if not response.choices:
             raise RuntimeError("ChatCompletion returned no choices")
@@ -140,8 +130,32 @@ class AsyncChatAPI(AsyncFilter):
         await self._http_client.aclose()
         await self._openai_client.close()
 
+    async def validate_api(self) -> None:
+        """Validate that the configured endpoint exposes the requested model."""
+        try:
+            models = await self._openai_client.models.list()
+        except Exception as e:
+            msg = (
+                f"Failed to fetch models from your API Endpoint '{self.endpoint_url}/models'. "
+                "Please check the endpoint URL and ensure your server is running."
+            )
+            raise ValueError(msg) from e
+
+        if not any(model.id == self.model_id for model in models.data):
+            msg = (
+                f"Model '{self.model_id}' not found in the OpenAI API Endpoint "
+                f"'{self.endpoint_url}/models'. Please check the model name and ensure it is "
+                "available in your API."
+            )
+            raise ValueError(msg)
+
+    @deprecated_since("0.17.0", "validate_api")
     def check_api_alive(self, endpoint_url: str, model_id: str) -> None:
-        # Check model is deployed
+        """Synchronously validate an endpoint.
+
+        Deprecated: use `await validate_api()` so validation uses the configured async client,
+        authentication, timeout, and retry settings.
+        """
         with httpx.Client() as c:
             try:
                 r = c.get(f"{endpoint_url}/models")
