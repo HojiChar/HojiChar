@@ -219,6 +219,16 @@ This allows HojiChar to efficiently process massive corpora while maintaining lo
 
 - The `AsyncCompose` class accepts both `Filter` and `AsyncFilter` objects, allowing you to mix synchronous and asynchronous filters in a single pipeline.
 
+Synchronous tools can consume an `AsyncCompose` pipeline through `imap_apply`. The bridge owns
+one background event loop and shuts down the pipeline after iteration by default. Use the returned
+iterator as a context manager when the consumer may stop early.
+
+```python
+with async_pipeline.imap_apply(input_doc_iter) as output_docs:
+    for document in output_docs:
+        print(document.text)
+```
+
 ### Example
 
 Nowadays, text processing is enhanced by the intelligence of LLMs.
@@ -249,7 +259,7 @@ async_pipeline = AsyncCompose(
 )
 
 with open("input.jsonl") as f:
-    with async_pipeline:
+    async with async_pipeline:
         async_output_stream = (str(doc) async for doc in async_pipeline.apply_stream(f))
         await write_stream_to_file(async_output_stream, "output.jsonl", chunk_size=128) # Write async-iterable to file efficiently
 ```
