@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections import deque
 from typing import (
     Any,
     AsyncGenerator,
@@ -39,6 +40,7 @@ class AsyncFilter(ABC):
         random_state: int | np.random.Generator | None = None,
         use_batch: bool = True,
         batch_size: int = 128,
+        ordered: bool = True,
         **kwargs: Any,
     ):
         """
@@ -59,7 +61,16 @@ class AsyncFilter(ABC):
             If `True`, the filter will process documents in batches in the `apply_stream` method.
         batch_size : int
             The size of the batch to process documents in the `apply_stream` method.
+            When `apply_batch` is not overridden, this is also the maximum number of
+            in-flight document tasks used by the sliding-window scheduler.
+        ordered : bool
+            If `True`, `apply_stream` yields documents in input order. If `False`, filters
+            using the default `apply_batch` implementation yield documents as soon as their
+            processing completes.
         """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+
         self.name = self.__class__.__name__
         self.logger = logging.getLogger(f"{self.__module__}.{self.__class__.__name__}")
         assert 0 <= p <= 1
@@ -68,6 +79,7 @@ class AsyncFilter(ABC):
         self.skip_rejected = skip_rejected
         self.use_batch = use_batch
         self.batch_size = batch_size
+        self.ordered = ordered
 
         self._statistics = Statistics(name=self.name)
         self._stats_lock = asyncio.Lock()
@@ -158,6 +170,9 @@ class AsyncFilter(ABC):
         if not self.use_batch:
             async for doc in async_stream:
                 yield await self._try_process(doc, self._apply)
+        elif type(self).apply_batch is AsyncFilter.apply_batch:
+            async for doc in self._apply_stream_concurrently(async_stream):
+                yield doc
         else:
             batch: list[Document] = []
             async for doc in async_stream:
@@ -182,6 +197,93 @@ class AsyncFilter(ABC):
                 batch = await self._finalize_batch(batch, stats)
                 for out in batch:
                     yield out
+
+    async def _apply_stream_concurrently(
+        self,
+        stream: AsyncIterable[Document],
+    ) -> AsyncGenerator[Document, None]:
+        """Apply documents with a bounded sliding window.
+
+        This path is used when a filter relies on the default per-document `apply_batch`
+        implementation. Filters that override `apply_batch` retain true batch processing.
+        """
+        async_iterator = stream.__aiter__()
+
+        async def next_task() -> asyncio.Task[Document] | None:
+            try:
+                document = await async_iterator.__anext__()
+            except StopAsyncIteration:
+                return None
+            skip = self._check_skip(document)
+            return asyncio.create_task(self._process_stream_document(document, skip=skip))
+
+        if self.ordered:
+            pending: deque[asyncio.Task[Document]] = deque()
+            current: asyncio.Task[Document] | None = None
+            try:
+                for _ in range(self.batch_size):
+                    task = await next_task()
+                    if task is None:
+                        break
+                    pending.append(task)
+
+                while pending:
+                    current = pending.popleft()
+                    result = await current
+                    current = None
+
+                    task = await next_task()
+                    if task is not None:
+                        pending.append(task)
+                    yield result
+            finally:
+                remaining = list(pending)
+                if current is not None:
+                    remaining.append(current)
+                await self._cancel_tasks(remaining)
+            return
+
+        pending_set: set[asyncio.Task[Document]] = set()
+        try:
+            for _ in range(self.batch_size):
+                task = await next_task()
+                if task is None:
+                    break
+                pending_set.add(task)
+
+            while pending_set:
+                done, still_pending = await asyncio.wait(
+                    pending_set,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                results = [task.result() for task in done]
+                pending_set = still_pending
+
+                for _ in done:
+                    task = await next_task()
+                    if task is not None:
+                        pending_set.add(task)
+                for result in results:
+                    yield result
+        finally:
+            await self._cancel_tasks(pending_set)
+
+    async def _process_stream_document(self, document: Document, *, skip: bool) -> Document:
+        if skip:
+            return document
+
+        stats = [get_doc_info(document)]
+        document = await self._try_process(document, self.apply)
+        return (await self._finalize_batch([document], stats))[0]
+
+    @staticmethod
+    async def _cancel_tasks(tasks: Iterable[asyncio.Task[Any]]) -> None:
+        tasks = list(tasks)
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _try_process(self, target: T, func: Callable[[T], Awaitable[T]]) -> T:
         try:
@@ -259,7 +361,7 @@ class AsyncFilter(ABC):
         for old, new, doc in zip(old_stats, new_stats, batch):
             async with self._stats_lock:
                 self._statistics.update_by_diff(old, new)
-            if not old["is_rejected"] and new["is_rejected"]:
+            if not old["is_rejected"] and new["is_rejected"] and "error" not in doc.reject_reason:
                 doc.reject_reason = self.get_jsonable_vars()
         return list(batch)
 
