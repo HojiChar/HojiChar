@@ -218,6 +218,12 @@ This allows HojiChar to efficiently process massive corpora while maintaining lo
     ```
 
 - The `AsyncCompose` class accepts both `Filter` and `AsyncFilter` objects, allowing you to mix synchronous and asynchronous filters in a single pipeline.
+- For filters that use the default per-document `apply_batch`, `AsyncFilter.apply_stream` keeps
+  at most `batch_size` documents in flight and replenishes the window as each document finishes.
+  Results preserve input order by default; set `ordered=False` to yield completed documents
+  immediately when input order is not required.
+- Filters that override `apply_batch` continue to process complete batches, so implementations
+  backed by a real batch API retain their batching behavior.
 
 Synchronous tools can consume an `AsyncCompose` pipeline through `imap_apply`. The bridge owns
 one background event loop and shuts down the pipeline after iteration by default. Use the returned
