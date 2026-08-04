@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from collections import deque
 from typing import (
     Any,
     AsyncGenerator,
@@ -212,68 +211,15 @@ class AsyncFilter(ABC):
         async def next_document() -> Document:
             return await async_iterator.__anext__()
 
-        if self.ordered:
-            pending: deque[asyncio.Task[Document]] = deque()
-            source_task: asyncio.Task[Document] | None = asyncio.create_task(
-                next_document()
-            )
-            source_exhausted = False
-            try:
-                while source_task is not None or pending:
-                    wait_for: set[asyncio.Task[Document]] = set()
-                    if source_task is not None:
-                        wait_for.add(source_task)
-                    if pending:
-                        wait_for.add(pending[0])
-                    done, _ = await asyncio.wait(
-                        wait_for,
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-
-                    if source_task is not None and source_task in done:
-                        completed_source_task = source_task
-                        source_task = None
-                        try:
-                            document = completed_source_task.result()
-                        except StopAsyncIteration:
-                            source_exhausted = True
-                        else:
-                            skip = self._check_skip(document)
-                            pending.append(
-                                asyncio.create_task(
-                                    self._process_stream_document(document, skip=skip)
-                                )
-                            )
-
-                    if (
-                        not source_exhausted
-                        and source_task is None
-                        and len(pending) < self.batch_size
-                    ):
-                        source_task = asyncio.create_task(next_document())
-
-                    if pending and pending[0].done():
-                        result = pending.popleft().result()
-                        if (
-                            not source_exhausted
-                            and source_task is None
-                            and len(pending) < self.batch_size
-                        ):
-                            source_task = asyncio.create_task(next_document())
-                        yield result
-            finally:
-                remaining = list(pending)
-                if source_task is not None:
-                    remaining.append(source_task)
-                await self._cancel_tasks(remaining)
-            return
-
-        pending_set: set[asyncio.Task[Document]] = set()
-        source_task = asyncio.create_task(next_document())
+        pending: dict[asyncio.Task[Document], int] = {}
+        completed_results: dict[int, Document] = {}
+        next_input_index = 0
+        next_output_index = 0
+        source_task: asyncio.Task[Document] | None = asyncio.create_task(next_document())
         source_exhausted = False
         try:
-            while source_task is not None or pending_set:
-                wait_for = set(pending_set)
+            while source_task is not None or pending:
+                wait_for = set(pending)
                 if source_task is not None:
                     wait_for.add(source_task)
                 done, _ = await asyncio.wait(
@@ -290,27 +236,38 @@ class AsyncFilter(ABC):
                         source_exhausted = True
                     else:
                         skip = self._check_skip(document)
-                        pending_set.add(
-                            asyncio.create_task(
-                                self._process_stream_document(document, skip=skip)
-                            )
+                        processing_task = asyncio.create_task(
+                            self._process_stream_document(document, skip=skip)
                         )
+                        pending[processing_task] = next_input_index
+                        next_input_index += 1
 
-                completed = done.intersection(pending_set)
-                results = [task.result() for task in completed]
-                pending_set.difference_update(completed)
+                completed_tasks = done.intersection(pending)
+                newly_completed: list[Document] = []
+                for task in completed_tasks:
+                    input_index = pending.pop(task)
+                    result = task.result()
+                    if self.ordered:
+                        completed_results[input_index] = result
+                    else:
+                        newly_completed.append(result)
 
                 if (
                     not source_exhausted
                     and source_task is None
-                    and len(pending_set) < self.batch_size
+                    and len(pending) < self.batch_size
                 ):
                     source_task = asyncio.create_task(next_document())
 
-                for result in results:
-                    yield result
+                if self.ordered:
+                    while next_output_index in completed_results:
+                        yield completed_results.pop(next_output_index)
+                        next_output_index += 1
+                else:
+                    for result in newly_completed:
+                        yield result
         finally:
-            remaining = list(pending_set)
+            remaining = list(pending)
             if source_task is not None:
                 remaining.append(source_task)
             await self._cancel_tasks(remaining)

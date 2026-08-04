@@ -174,6 +174,37 @@ async def test_apply_stream_uses_sliding_window():
 
 
 @pytest.mark.asyncio
+async def test_ordered_apply_stream_refills_when_later_tasks_finish():
+    docs = [Document(text=str(i)) for i in range(5)]
+    f = ControlledFilter(count=5, batch_size=3)
+    stream = f.apply_stream(docs)
+
+    first_output = asyncio.create_task(stream.__anext__())
+    for index in range(3):
+        await asyncio.wait_for(f.started[index].wait(), timeout=1)
+
+    # Items 1 and 2 finish before item 0. Their slots must be refilled even though
+    # ordered output cannot yield anything until item 0 completes.
+    f.release[1].set()
+    await asyncio.wait_for(f.started[3].wait(), timeout=1)
+    f.release[2].set()
+    await asyncio.wait_for(f.started[4].wait(), timeout=1)
+
+    assert not first_output.done()
+    assert f.active == 3
+    assert f.max_active == 3
+
+    f.release[0].set()
+    assert (await asyncio.wait_for(first_output, timeout=1)).text == "0"
+    assert (await asyncio.wait_for(stream.__anext__(), timeout=1)).text == "1"
+    assert (await asyncio.wait_for(stream.__anext__(), timeout=1)).text == "2"
+
+    f.release[3].set()
+    f.release[4].set()
+    assert [doc.text async for doc in stream] == ["3", "4"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("ordered", [True, False])
 async def test_apply_stream_does_not_wait_to_fill_window_from_async_source(ordered):
     release_second = asyncio.Event()
