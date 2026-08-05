@@ -245,9 +245,10 @@ def test_max_in_flight_rejects_non_positive_values() -> None:
 
 def test_max_in_flight_bound_is_strict() -> None:
     """
-    permit を取得してから next() する実装であることの回帰テスト。
-    取得前に先読みすると、window=1 でも「permit 待ちで保持される 1 件」が
-    余分に取り出され、consumed + window + 1 件目が観測される。
+    厳密なバックプレッシャの回帰テスト。permit は「取得してから next() で
+    取り出し、結果を呼び出し側へ渡し終える (次の next() が来る) まで保持」
+    でなければならない。取得前に先読みする実装や、yield より前に release
+    する実装では、window=1 でも 2 件目が source から取り出される。
     """
     produced = [0]
 
@@ -259,8 +260,10 @@ def test_max_in_flight_bound_is_strict() -> None:
     filter = hojichar.Compose([DummyAppendFilter("")])
     with Parallel(filter, num_jobs=1, ordered=True, max_in_flight=1) as pfilter:
         iterator = pfilter.imap_apply(producer())
-        next(iterator)  # consumed = 1, releasing one permit
+        next(iterator)  # doc_1 is handed to us and still holds its permit
         time.sleep(0.3)  # give the feeder ample time to advance as far as it can
-        # consumed(1) + window(1): the feeder may hold doc_2 in flight but must
-        # not have drawn doc_3 from the source.
-        assert produced[0] <= 2
+        assert produced[0] == 1
+
+        next(iterator)  # requesting doc_2 releases doc_1's permit
+        time.sleep(0.3)
+        assert produced[0] == 2
