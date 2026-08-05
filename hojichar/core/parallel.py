@@ -56,8 +56,10 @@ class _InFlightGate:
     the caller at any moment.
 
     ``feed`` runs inside Pool's task-handler thread. The polling acquire
-    observes :meth:`stop`, so the feeder exits even when the consumer stops
-    iterating early and pool shutdown never blocks on the gate.
+    observes :meth:`stop` before and after each successful acquire (handing
+    the permit back if stopped), and abnormal exits stop the gate before
+    returning their permit, so the feeder never draws from the source after
+    consumption ended and pool shutdown never blocks on the gate.
     """
 
     def __init__(self, max_in_flight: int) -> None:
@@ -82,10 +84,16 @@ class _InFlightGate:
         self._stop_feeding.set()
 
     def _acquire(self) -> bool:
-        while not self._semaphore.acquire(timeout=0.1):
-            if self._stop_feeding.is_set():
-                return False
-        return True
+        while not self._stop_feeding.is_set():
+            if self._semaphore.acquire(timeout=0.1):
+                if self._stop_feeding.is_set():
+                    # Stopped while blocked on (or right after) the acquire:
+                    # hand the permit back instead of drawing one more
+                    # document from a possibly blocking source.
+                    self._semaphore.release()
+                    return False
+                return True
+        return False
 
 
 class Parallel:
@@ -199,13 +207,20 @@ class Parallel:
                 self._pid_stats[pid] = stat
                 if err_msg is not None:
                     logger.error(f"Error in worker {pid}: {err_msg}")
+                # The permit is returned only once the caller has taken the
+                # document: releasing before the yield would let the feeder
+                # momentarily draw max_in_flight + 1 documents. On an abnormal
+                # exit (close/throw at the yield point) the gate is stopped
+                # *before* the permit is returned, so a feeder woken by the
+                # release always observes the stop and cannot draw again.
                 try:
                     yield doc
-                finally:
-                    # Return the permit only once the caller has taken the
-                    # document (or stopped iterating). Releasing before the
-                    # yield would let the feeder momentarily draw
-                    # max_in_flight + 1 documents.
+                except BaseException:
+                    if gate is not None:
+                        gate.stop()
+                        gate.release()
+                    raise
+                else:
                     if gate is not None:
                         gate.release()
         except Exception:

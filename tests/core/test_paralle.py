@@ -267,3 +267,29 @@ def test_max_in_flight_bound_is_strict() -> None:
         next(iterator)  # requesting doc_2 releases doc_1's permit
         time.sleep(0.3)
         assert produced[0] == 2
+
+
+def test_max_in_flight_feeder_stops_after_abandoned_iteration() -> None:
+    """
+    window 枯渇で feeder が permit 待ちの間に消費側が iteration を打ち切った
+    場合、クローズで返却された permit を feeder が拾って next() を余分に
+    呼ばないことの回帰テスト。stop を立ててから permit を返す順序と、
+    取得後の stop 再チェックの両方が必要になる。
+    """
+    produced = [0]
+
+    def producer() -> hojichar.Document:
+        for i in range(50):
+            produced[0] += 1
+            yield hojichar.Document(f"doc_{i}")
+
+    filter = hojichar.Compose([DummyAppendFilter("")])
+    with Parallel(filter, num_jobs=1, ordered=True, max_in_flight=1) as pfilter:
+        iterator = pfilter.imap_apply(producer())
+        next(iterator)  # doc_1 holds the only permit
+        time.sleep(0.3)  # let the feeder park on the gate
+        assert produced[0] == 1
+
+        iterator.close()  # abandons iteration, returning doc_1's permit
+        time.sleep(0.3)  # give a mis-woken feeder time to draw doc_2
+        assert produced[0] == 1
