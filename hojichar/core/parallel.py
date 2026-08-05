@@ -50,16 +50,26 @@ def _gated_stream(
     gate: threading.Semaphore,
     stop_feeding: threading.Event,
 ) -> Iterator[hojichar.Document]:
-    """Yield documents while limiting how many are in flight.
+    """Yield documents while strictly limiting how many are in flight.
 
-    Runs inside Pool's task-handler thread. The polling acquire lets the
-    feeder observe ``stop_feeding`` and exit even when the consumer stops
-    iterating early, so pool shutdown never blocks on the gate.
+    A permit is acquired *before* the next document is drawn from ``docs``,
+    so at most ``max_in_flight`` documents exist outside the source iterator
+    at any moment; acquiring afterwards would hold one extra pre-fetched
+    document while waiting. Runs inside Pool's task-handler thread. The
+    polling acquire lets the feeder observe ``stop_feeding`` and exit even
+    when the consumer stops iterating early, so pool shutdown never blocks
+    on the gate.
     """
-    for doc in docs:
+    iterator = iter(docs)
+    while True:
         while not gate.acquire(timeout=0.1):
             if stop_feeding.is_set():
                 return
+        try:
+            doc = next(iterator)
+        except StopIteration:
+            gate.release()
+            return
         yield doc
 
 
