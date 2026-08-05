@@ -177,3 +177,67 @@ def test_parallel_statistics_collection():
     assert layer1["output_num"] == 2
     assert layer1["diff_chars"] == 2
     assert layer1["diff_bytes"] == 2
+
+
+class SleepFilter(hojichar.Filter):
+    def __init__(self, seconds: float, **kwargs):
+        super().__init__(**kwargs)
+        self.seconds = seconds
+
+    def apply(self, document: hojichar.Document) -> hojichar.Document:
+        time.sleep(self.seconds)
+        return document
+
+
+def test_max_in_flight_bounds_input_consumption() -> None:
+    """
+    max_in_flight 個を超えるドキュメントが「入力から取り出されたが未 yield」に
+    ならないことを検証する。semaphore の不変条件なのでタイミングに依存しない。
+    """
+    window = 8
+    produced = [0]
+
+    def producer() -> hojichar.Document:
+        for i in range(100):
+            produced[0] += 1
+            yield hojichar.Document(f"doc_{i}")
+
+    filter = hojichar.Compose([SleepFilter(0.001)])
+    consumed = 0
+    with Parallel(filter, num_jobs=2, ordered=True, max_in_flight=window) as pfilter:
+        for _ in pfilter.imap_apply(producer()):
+            consumed += 1
+            assert produced[0] - consumed <= window
+
+    assert consumed == 100
+
+
+@pytest.mark.parametrize("ordered", [False, True])
+def test_max_in_flight_results_match_unbounded(ordered: bool) -> None:
+    documents = [hojichar.Document(json.dumps({"text": f"doc_{i}"})) for i in range(20)]
+    filter = hojichar.Compose([JSONLoader(), JSONDumper()])
+
+    with Parallel(filter, num_jobs=2, ordered=ordered, max_in_flight=3) as pfilter:
+        processed = list(pfilter.imap_apply(iter(documents)))
+
+    assert set(str(doc) for doc in processed) == set(str(doc) for doc in documents)
+
+
+def test_max_in_flight_early_exit_does_not_hang() -> None:
+    """
+    消費側が途中で iteration をやめても、gate で待機している feeder が
+    解放され pool の shutdown が完了することを検証する。
+    """
+    documents = (hojichar.Document(f"doc_{i}") for i in range(1000))
+    filter = hojichar.Compose([SleepFilter(0.001)])
+
+    with Parallel(filter, num_jobs=2, max_in_flight=2) as pfilter:
+        for doc in pfilter.imap_apply(documents):
+            break
+    # reaching here without a deadlock is the assertion
+
+
+def test_max_in_flight_rejects_non_positive_values() -> None:
+    filter = hojichar.Compose([JSONLoader()])
+    with pytest.raises(ValueError):
+        Parallel(filter, max_in_flight=0)

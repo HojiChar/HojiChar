@@ -4,6 +4,7 @@ import functools
 import logging
 import os
 import signal
+import threading
 from copy import copy
 from multiprocessing.pool import Pool
 from typing import Iterator, List
@@ -44,6 +45,24 @@ def _worker(
     return result, os.getpid(), PARALLEL_BASE_FILTER.get_total_statistics(), error_message
 
 
+def _gated_stream(
+    docs: Iterator[hojichar.Document],
+    gate: threading.Semaphore,
+    stop_feeding: threading.Event,
+) -> Iterator[hojichar.Document]:
+    """Yield documents while limiting how many are in flight.
+
+    Runs inside Pool's task-handler thread. The polling acquire lets the
+    feeder observe ``stop_feeding`` and exit even when the consumer stops
+    iterating early, so pool shutdown never blocks on the gate.
+    """
+    for doc in docs:
+        while not gate.acquire(timeout=0.1):
+            if stop_feeding.is_set():
+                return
+        yield doc
+
+
 class Parallel:
     """
     The Parallel class provides a way to apply a hojichar.Compose filter
@@ -65,6 +84,7 @@ class Parallel:
         num_jobs: int | None = None,
         ignore_errors: bool = False,
         ordered: bool = False,
+        max_in_flight: int | None = None,
     ):
         """
         Initializes a new instance of the Parallel class.
@@ -87,14 +107,24 @@ class Parallel:
             ordered (bool, optional): If set to True, processed documents are yielded in
                 the same order as the input documents. If set to False, documents are
                 yielded as soon as their processing completes. Defaults to False.
+            max_in_flight (int | None, optional): Upper bound on the number of documents
+                drawn from the input iterator but not yet yielded back by `imap_apply`.
+                Without a bound, Pool's task-handler thread drains the input as fast as
+                the worker pipe accepts, so a producer that outruns the filters can
+                buffer a large number of documents. If None, no explicit bound is
+                applied. Defaults to None.
         """
+        if max_in_flight is not None and max_in_flight < 1:
+            raise ValueError("max_in_flight must be at least 1")
         self.filter = filter
         self.num_jobs = num_jobs
         self.ignore_errors = ignore_errors
         self.ordered = ordered
+        self.max_in_flight = max_in_flight
 
         self._pool: Pool | None = None
         self._pid_stats: dict[int, List[Statistics]] | None = None
+        self._feed_stop_events: list[threading.Event] = []
 
     def __enter__(self) -> Parallel:
         self._pool = Pool(
@@ -103,6 +133,7 @@ class Parallel:
             initargs=(self.filter, self.ignore_errors),
         )
         self._pid_stats = dict()
+        self._feed_stop_events = []
         return self
 
     def imap_apply(self, docs: Iterator[hojichar.Document]) -> Iterator[hojichar.Document]:
@@ -126,6 +157,12 @@ class Parallel:
             raise RuntimeError(
                 "Parallel instance not properly initialized. Use within a 'with' statement."
             )
+        gate: threading.Semaphore | None = None
+        stop_feeding = threading.Event()
+        self._feed_stop_events.append(stop_feeding)
+        if self.max_in_flight is not None:
+            gate = threading.Semaphore(self.max_in_flight)
+            docs = _gated_stream(docs, gate, stop_feeding)
         try:
             results = (
                 self._pool.imap(_worker, docs)
@@ -136,12 +173,21 @@ class Parallel:
                 self._pid_stats[pid] = stat
                 if err_msg is not None:
                     logger.error(f"Error in worker {pid}: {err_msg}")
+                if gate is not None:
+                    gate.release()
                 yield doc
         except Exception:
             self.__exit__(None, None, None)
             raise
+        finally:
+            # Unblock the feeder if the consumer stopped iterating early.
+            stop_feeding.set()
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:  # type: ignore
+        # Feeders blocked on a max_in_flight gate must exit before the pool is
+        # joined, or shutdown would wait on them forever.
+        for stop_feeding in self._feed_stop_events:
+            stop_feeding.set()
         if self._pool:
             self._pool.terminate()
             self._pool.join()
