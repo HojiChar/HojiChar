@@ -41,6 +41,7 @@ def test_unpicklable_fasttext_model_can_run_in_parallel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(_START_METHOD_ENV_VAR, raising=False)
+    monkeypatch.setattr(multiprocessing, "get_start_method", Mock(return_value=None))
     filter = LanguageIdentificationByFastText.__new__(LanguageIdentificationByFastText)
     hojichar.Filter.__init__(filter)
     filter.language = "ja"

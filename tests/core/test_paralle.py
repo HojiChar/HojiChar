@@ -75,6 +75,7 @@ class StartMethodFilter(hojichar.Filter):
 )
 def test_parallel_processes_unpicklable_filter_with_fork(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(_START_METHOD_ENV_VAR, raising=False)
+    monkeypatch.setattr(multiprocessing, "get_start_method", Mock(return_value=None))
     filter = hojichar.Compose([UnpicklableNativeStateFilter("-processed")])
 
     with pytest.raises(TypeError, match="cannot pickle"):
@@ -98,13 +99,30 @@ def test_parallel_start_method_can_be_overridden(monkeypatch: pytest.MonkeyPatch
     assert processed_doc.text == "spawn"
 
 
+@pytest.mark.parametrize("start_method", ["spawn", "forkserver"])
+def test_parallel_honors_configured_global_start_method(
+    monkeypatch: pytest.MonkeyPatch, start_method: str
+) -> None:
+    monkeypatch.delenv(_START_METHOD_ENV_VAR, raising=False)
+    get_start_method = Mock(return_value=start_method)
+    expected_context = Mock()
+    get_context = Mock(return_value=expected_context)
+    monkeypatch.setattr(multiprocessing, "get_start_method", get_start_method)
+    monkeypatch.setattr(multiprocessing, "get_context", get_context)
+
+    assert _get_parallel_context() is expected_context
+    get_start_method.assert_called_once_with(allow_none=True)
+    get_context.assert_called_once_with(start_method)
+
+
 def test_parallel_start_method_can_use_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_START_METHOD_ENV_VAR, "default")
+    expected_context = Mock()
+    get_context = Mock(return_value=expected_context)
+    monkeypatch.setattr(multiprocessing, "get_context", get_context)
 
-    assert (
-        _get_parallel_context().get_start_method()
-        == multiprocessing.get_context().get_start_method()
-    )
+    assert _get_parallel_context() is expected_context
+    get_context.assert_called_once_with(None)
 
 
 def test_parallel_rejects_invalid_start_method(monkeypatch: pytest.MonkeyPatch) -> None:

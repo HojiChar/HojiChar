@@ -26,14 +26,16 @@ WORKER_PARAM_IGNORE_ERRORS: bool
 def _get_parallel_context() -> multiprocessing.context.BaseContext:
     """Return the multiprocessing context used by :class:`Parallel`.
 
-    ``fork`` is selected explicitly when it is available so worker processes can
-    inherit filters which cannot be pickled.  The environment variable is an
-    escape hatch for applications where forking is unsafe; ``default`` delegates
-    the choice back to Python's global/default multiprocessing context.
+    If no global start method has been configured, ``fork`` is selected when it
+    is available so worker processes can inherit filters which cannot be pickled.
+    The environment variable takes precedence over the global setting;
+    ``default`` delegates the choice back to Python's global/default context.
     """
     configured_method = os.getenv(_START_METHOD_ENV_VAR)
     if configured_method is None:
-        start_method = "fork" if "fork" in multiprocessing.get_all_start_methods() else None
+        start_method = multiprocessing.get_start_method(allow_none=True)
+        if start_method is None and "fork" in multiprocessing.get_all_start_methods():
+            start_method = "fork"
     elif configured_method == "default":
         start_method = None
     else:
@@ -132,11 +134,11 @@ class Parallel:
     number of worker processes. This class should be used as a context
     manager with a 'with' statement.
 
-    On platforms which support it, Parallel explicitly uses the ``fork`` start
-    method so filters that cannot be pickled can be inherited by workers. Set
-    ``HOJICHAR_MP_START_METHOD`` to ``spawn``, ``forkserver``, or ``default`` to
-    choose another context. Non-fork contexts require the Compose object and its
-    filters to be picklable.
+    When no global start method has been configured, Parallel uses ``fork`` on
+    platforms which support it so unpicklable filters can be inherited by
+    workers. Set ``HOJICHAR_MP_START_METHOD`` to explicitly choose ``fork``,
+    ``spawn``, ``forkserver``, or ``default``. Non-fork contexts require the
+    Compose object and its filters to be picklable.
 
     Example:
 
