@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import multiprocessing
 import os
 import signal
 import threading
@@ -16,8 +17,36 @@ from hojichar.core.models import Statistics
 logger = logging.getLogger(__name__)
 
 
+_START_METHOD_ENV_VAR = "HOJICHAR_MP_START_METHOD"
+
 PARALLEL_BASE_FILTER: hojichar.Compose
 WORKER_PARAM_IGNORE_ERRORS: bool
+
+
+def _get_parallel_context() -> multiprocessing.context.BaseContext:
+    """Return the multiprocessing context used by :class:`Parallel`.
+
+    ``fork`` is selected explicitly when it is available so worker processes can
+    inherit filters which cannot be pickled.  The environment variable is an
+    escape hatch for applications where forking is unsafe; ``default`` delegates
+    the choice back to Python's global/default multiprocessing context.
+    """
+    configured_method = os.getenv(_START_METHOD_ENV_VAR)
+    if configured_method is None:
+        start_method = "fork" if "fork" in multiprocessing.get_all_start_methods() else None
+    elif configured_method == "default":
+        start_method = None
+    else:
+        start_method = configured_method
+
+    try:
+        return multiprocessing.get_context(start_method)
+    except ValueError as error:
+        supported_methods = ["default", *multiprocessing.get_all_start_methods()]
+        raise ValueError(
+            f"Invalid {_START_METHOD_ENV_VAR}={configured_method!r}. "
+            f"Choose one of: {', '.join(supported_methods)}."
+        ) from error
 
 
 def _init_worker(filter: hojichar.Compose, ignore_errors: bool) -> None:
@@ -103,6 +132,12 @@ class Parallel:
     number of worker processes. This class should be used as a context
     manager with a 'with' statement.
 
+    On platforms which support it, Parallel explicitly uses the ``fork`` start
+    method so filters that cannot be pickled can be inherited by workers. Set
+    ``HOJICHAR_MP_START_METHOD`` to ``spawn``, ``forkserver``, or ``default`` to
+    choose another context. Non-fork contexts require the Compose object and its
+    filters to be picklable.
+
     Example:
 
     doc_iter = (hojichar.Document(d) for d in open("my_text.txt"))
@@ -162,7 +197,8 @@ class Parallel:
         self._gates: list[_InFlightGate] = []
 
     def __enter__(self) -> Parallel:
-        self._pool = Pool(
+        context = _get_parallel_context()
+        self._pool = context.Pool(
             processes=self.num_jobs,
             initializer=_init_worker,
             initargs=(self.filter, self.ignore_errors),
