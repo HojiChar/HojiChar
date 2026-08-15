@@ -393,6 +393,7 @@ with hojichar.Parallel(cleaner, num_jobs=10) as pfilter:
 - `Parallel.imap_apply(doc_iter)` processes an iterator of `Document` and returns an iterator of the processed documents.
 - By default, processed documents are yielded as soon as they complete. Pass `ordered=True`
   to `Parallel` to yield them in the same order as the input documents.
+- If no start method is configured, `Parallel` uses `fork` so workers can inherit unpicklable filters. Set `HOJICHAR_MP_START_METHOD` to explicitly choose another context.
 - For additional options and details about the `Parallel` class, please refer to the official documentation.
 
 ## CLI tool and preprocessing profile
