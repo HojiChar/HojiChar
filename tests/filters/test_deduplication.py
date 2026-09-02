@@ -17,6 +17,15 @@ def test_non_alpha_num_splitter():
     assert module.non_alpha_num_splitter(s) == ["Hello", "123", "world"]
 
 
+def test_ngrams():
+    assert list(module._ngrams(iter("abcde"), 3)) == [
+        ("a", "b", "c"),
+        ("b", "c", "d"),
+        ("c", "d", "e"),
+    ]
+    assert list(module._ngrams(iter("ab"), 3)) == []
+
+
 def test_japanese_word_splitter_roundtrip():
     fugashi = pytest.importorskip("fugashi")  # noqa
     text = "これはテスト文章です"

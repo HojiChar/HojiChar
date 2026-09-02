@@ -39,7 +39,6 @@ openai = [
 dedup = [
     "datasketch>=1.6.5",
     "fugashi>=1.5.1",
-    "nltk>=3.9.1",
     "redis>=6.2.0",
     "rensa>=0.2.7",
     "xxhash>=3.5.0",

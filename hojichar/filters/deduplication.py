@@ -50,6 +50,8 @@ from __future__ import annotations
 import importlib
 import re
 import sys
+from collections import deque
+from itertools import islice
 from typing import Any, Callable, Final, Iterable, Optional, cast
 
 import numpy as np
@@ -59,7 +61,6 @@ try:
     import redis
     import xxhash
     from datasketch.lsh import _optimal_param  # type: ignore
-    from nltk.util import ngrams  # type: ignore
     from rensa import RMinHash  # type: ignore
 
     is_loaded_dedup = True
@@ -91,6 +92,17 @@ def non_alpha_num_splitter(text: str) -> list[str]:
     This is a simple implementation that splits on non-alphanumeric characters.
     """
     return [token for token in NON_ALPHA.split(text) if token]
+
+
+def _ngrams(tokens: Iterable[str], n: int) -> Iterable[tuple[str, ...]]:
+    """Yield sliding windows of *n* tokens."""
+    iterator = iter(tokens)
+    window = deque(islice(iterator, n), maxlen=n)
+    if len(window) == n:
+        yield tuple(window)
+    for token in iterator:
+        window.append(token)
+        yield tuple(window)
 
 
 def japanese_word_splitter(text: str) -> list[str]:
@@ -181,7 +193,7 @@ class GenerateDedupLSH(Filter):
             A 1D numpy array of shape (num_perm,) with dtype uint32.
         """
         tokens = self.tokenizer(text)
-        n_gram_tokens = ngrams(tokens, self.n_grams)
+        n_gram_tokens = _ngrams(tokens, self.n_grams)
         # Join tokens into string n-grams for hashing
         tokens = [" ".join(grams) for grams in n_gram_tokens]
         # Initialize and update RMinHash
