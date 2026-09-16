@@ -1,0 +1,182 @@
+[
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 100,
+    "median_ms": 0.016774983723958335,
+    "min_ms": 0.016699144205729165,
+    "max_ms": 0.017553141276041666,
+    "documents_per_second": 59612.57646836236
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 100,
+    "median_ms": 0.04139548079427083,
+    "min_ms": 0.04101009114583334,
+    "max_ms": 0.04379707845052083,
+    "documents_per_second": 24157.226364149414
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 100,
+    "median_ms": 0.12280490494791667,
+    "min_ms": 0.12201383463541668,
+    "max_ms": 0.24589783984375002,
+    "documents_per_second": 8142.997223312167
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 100,
+    "median_ms": 0.10503352864583332,
+    "min_ms": 0.10478960546874999,
+    "max_ms": 0.10809776562500001,
+    "documents_per_second": 9520.769347585563
+  },
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 300,
+    "median_ms": 0.024940104166666668,
+    "min_ms": 0.024657552083333333,
+    "max_ms": 0.03073256429036458,
+    "documents_per_second": 40096.06348543385
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 300,
+    "median_ms": 0.08009947395833333,
+    "min_ms": 0.07900328255208333,
+    "max_ms": 0.13153450520833332,
+    "documents_per_second": 12484.476496314901
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 300,
+    "median_ms": 0.3253870442708333,
+    "min_ms": 0.32243554687500003,
+    "max_ms": 0.3983134765625,
+    "documents_per_second": 3073.263111138678
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 300,
+    "median_ms": 0.2696379114583333,
+    "min_ms": 0.2683960494791667,
+    "max_ms": 0.2731527786458333,
+    "documents_per_second": 3708.6772946412184
+  },
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 1000,
+    "median_ms": 0.051103841145833336,
+    "min_ms": 0.05066741276041667,
+    "max_ms": 0.05278108723958333,
+    "documents_per_second": 19568.00071341669
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 1000,
+    "median_ms": 0.2165479609375,
+    "min_ms": 0.2151243489583333,
+    "max_ms": 0.22446147916666664,
+    "documents_per_second": 4617.914644269588
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 1000,
+    "median_ms": 1.025773,
+    "min_ms": 1.024407125,
+    "max_ms": 1.03924175,
+    "documents_per_second": 974.8745580162473
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 1000,
+    "median_ms": 0.8345399375,
+    "min_ms": 0.8326974791666667,
+    "max_ms": 1.0804908854166668,
+    "documents_per_second": 1198.2650021467666
+  },
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 3000,
+    "median_ms": 0.12962266666666666,
+    "min_ms": 0.12866585286458332,
+    "max_ms": 0.14223725130208334,
+    "documents_per_second": 7714.700103891295
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 3000,
+    "median_ms": 0.602705515625,
+    "min_ms": 0.5969913229166667,
+    "max_ms": 0.6464014791666667,
+    "documents_per_second": 1659.185081395861
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 3000,
+    "median_ms": 3.0751510416666665,
+    "min_ms": 3.0473663125000003,
+    "max_ms": 4.396980916666667,
+    "documents_per_second": 325.1872790801265
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 3000,
+    "median_ms": 2.497701375,
+    "min_ms": 2.479081583333333,
+    "max_ms": 3.0009201458333337,
+    "documents_per_second": 400.36811846652404
+  },
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 10000,
+    "median_ms": 0.388978296875,
+    "min_ms": 0.3688911692708333,
+    "max_ms": 0.40639648437500003,
+    "documents_per_second": 2570.8375198150316
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 10000,
+    "median_ms": 1.9364930625,
+    "min_ms": 1.9297907916666668,
+    "max_ms": 2.0080538125,
+    "documents_per_second": 516.3974089889103
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 10000,
+    "median_ms": 10.708677083333333,
+    "min_ms": 10.514791666666667,
+    "max_ms": 12.165913166666668,
+    "documents_per_second": 93.38221632963145
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 10000,
+    "median_ms": 8.500708333333334,
+    "min_ms": 8.418441,
+    "max_ms": 8.680291666666667,
+    "documents_per_second": 117.63725571888617
+  }
+]

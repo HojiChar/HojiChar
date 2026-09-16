@@ -139,8 +139,9 @@ class GenerateDedupLSH(Filter):
     **rows per band** (`r`) that minimise a weighted sum of false positives /
     false negatives at the specified *threshold*.
 
-    HojiChar 0.18.0 introduces ``v2:`` keys using Rensa 0.5, which was roughly
-    twice as fast for long documents in our benchmarks. Hashes differ from
+    HojiChar 0.18.0 introduces ``v2:`` keys using Rensa 0.5 and an optimized
+    hashing path. Hash generation was over 4x faster than HojiChar 0.17.3
+    in our 2,000-character English benchmark. Hashes differ from
     HojiChar 0.17.x. Please rebuild your deduplication fingerprints,
     or keep using HojiChar 0.17.x if you want to use existing LSH pool.
     """

@@ -50,7 +50,13 @@ If you want to use the near-deduplication (using MinHash LSH algorithm) filter, 
 pip install 'hojichar[dedup]'
 ```
 
-HojiChar 0.18.0 introduces new `v2:` LSH hashes using Rensa 0.5 for roughly 2× faster processing of long documents in our benchmarks. These hashes are incompatible with earlier versioins. Regenerate hashes from the original text and rebuild your deduplication index, or keep using HojiChar 0.17.x or earlier with your existing dependency versions.
+HojiChar 0.18.0 introduces new `v2:` LSH hashes using Rensa 0.5 and an optimized hashing path, with **over 4× faster hash generation than HojiChar 0.17.3** in our 2,000-character English benchmark. These hashes are incompatible with earlier versions. Regenerate hashes from the original text and rebuild your deduplication index, or keep using HojiChar 0.17.x or earlier with your existing dependency versions.
+
+On this benchmark, HojiChar 0.18.0 generates LSH keys **4.61× faster than 0.17.3** and **18.93× faster than Hugging Face Datatrove 0.10.0**. All implementations use character 5-grams and 500 signature components (25 bands × 20 rows); Datatrove uses a character tokenizer, disabled normalization, and 32-bit hashes. These results measure hash generation, not end-to-end preprocessing or deduplication quality. [Methodology and reproduction](benchmarks/minhash/README.md).
+
+![LSH hash generation throughput](benchmarks/minhash/throughput_2000_chars.svg)
+
+![Hash generation speed relative to Datatrove](benchmarks/minhash/speedup_vs_datatrove.svg)
 
 ## Defining a Compose Object
 

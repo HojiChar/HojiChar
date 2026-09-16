@@ -1,0 +1,38 @@
+[
+  {
+    "method": "hojichar_018",
+    "language": "en",
+    "characters": 2000,
+    "median_ms": 0.08710251236979166,
+    "min_ms": 0.086840087890625,
+    "max_ms": 0.08742637825520834,
+    "documents_per_second": 11480.725099576044
+  },
+  {
+    "method": "hojichar_0173",
+    "language": "en",
+    "characters": 2000,
+    "median_ms": 0.401238171875,
+    "min_ms": 0.389636609375,
+    "max_ms": 0.40214746093750003,
+    "documents_per_second": 2492.285306073859
+  },
+  {
+    "method": "datasketch",
+    "language": "en",
+    "characters": 2000,
+    "median_ms": 2.0274453125,
+    "min_ms": 2.0223333333333335,
+    "max_ms": 2.0355789791666665,
+    "documents_per_second": 493.2315529472512
+  },
+  {
+    "method": "datatrove",
+    "language": "en",
+    "characters": 2000,
+    "median_ms": 1.6485060833333334,
+    "min_ms": 1.6459348958333335,
+    "max_ms": 1.6516809895833335,
+    "documents_per_second": 606.6098330544023
+  }
+]
