@@ -50,6 +50,8 @@ If you want to use the near-deduplication (using MinHash LSH algorithm) filter, 
 pip install 'hojichar[dedup]'
 ```
 
+HojiChar 0.18.0 introduces new `v2:` LSH hashes using Rensa 0.5 for roughly 2× faster processing of long documents in our benchmarks. These hashes are incompatible with earlier versioins. Regenerate hashes from the original text and rebuild your deduplication index, or keep using HojiChar 0.17.x or earlier with your existing dependency versions.
+
 ## Defining a Compose Object
 
 The [`Compose`](https://hojichar.github.io/HojiChar/hojichar.html#Compose) class in HojiChar allows you to create a sequence of text processing filters.
