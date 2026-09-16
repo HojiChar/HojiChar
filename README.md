@@ -26,6 +26,10 @@ Inspired by [`torchvision.transforms`](https://pytorch.org/vision/stable/transfo
 
 While there are other text normalization tools available, most are designed to perform a specific set of operations. Text preprocessing, despite its importance in the LLM era, is often considered a mundane task compared to machine learning or artificial intelligence tasks. As a result, many existing solutions can be ad hoc, poorly maintained, or inadequately tested. Recognizing these issues, we developed HojiChar as a robust tool for configuring text preprocessing.
 
+For large text corpora, HojiChar also provides near-duplicate detection through `GenerateDedupLSH`. In our benchmark, HojiChar 0.18.0 generates MinHash LSH keys **over 4× faster than HojiChar 0.17.3**. The chart compares hash generation throughput with other implementations.
+
+![LSH hash generation throughput, with Datatrove as 1x](docs/images/minhash-throughput.svg)
+
 ## Install
 
 ```
@@ -50,11 +54,7 @@ If you want to use the near-deduplication (using MinHash LSH algorithm) filter, 
 pip install 'hojichar[dedup]'
 ```
 
-HojiChar 0.18.0 introduces new `v2:` LSH hashes using Rensa 0.5 and an optimized hashing path, with **over 4× faster hash generation than HojiChar 0.17.3** in our 2,000-character English benchmark. These hashes are incompatible with earlier versions. Regenerate hashes from the original text and rebuild your deduplication index, or keep using HojiChar 0.17.x or earlier with your existing dependency versions.
-
-![LSH hash generation throughput, with Datatrove as 1x](docs/images/minhash-throughput.svg)
-
-![LSH hash generation time by document length](docs/images/minhash-latency.svg)
+HojiChar 0.18.0 introduces new `v2:` LSH hashes using Rensa 0.5. These hashes are incompatible with earlier versions. Regenerate hashes from the original text and rebuild your deduplication index, or keep using HojiChar 0.17.x or earlier with your existing dependency versions.
 
 ## Defining a Compose Object
 
