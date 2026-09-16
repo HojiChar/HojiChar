@@ -1,0 +1,130 @@
+{
+  "baseline_versions": {
+    "datasketch": "1.6.5",
+    "rensa": "0.5.0",
+    "xxhash": "3.5.0",
+    "numpy": "2.0.2",
+    "scipy": "1.13.1"
+  },
+  "cases": [
+    {
+      "id": "japanese_default",
+      "text": "今日は朝からよく晴れていたので、近所の公園を散歩しました。木陰のベンチで本を読んでいると、子どもたちの楽しそうな声が聞こえてきました。",
+      "settings": {},
+      "expected_keys": [
+        "v2:0+3287f86626a2563f9dddb899e40cf464",
+        "v2:1+37e566f47b9c8d5722bfed8828a36eca",
+        "v2:2+8e3f9038d5d9e07cc129ea83971e2bce",
+        "v2:3+e083462277a073a3313e3e94229707fe",
+        "v2:4+63be37dada7290fa567242c90eb27894",
+        "v2:5+3320c03e0cec8ac67eff0df9d653ecd0",
+        "v2:6+8adadf23c41ffe5efe39dcdbccccf32e",
+        "v2:7+d1576725320886d6474e68daf4873f32",
+        "v2:8+755c7b130282e0ffdac9cce41c405930",
+        "v2:9+b0bd0a02ffea155db49c53dc9c80fc70",
+        "v2:10+3cf1992a589080e076db15adf892997f",
+        "v2:11+12f29f033b711ee6ccedbdf8b6abb195",
+        "v2:12+245d9db885387546d7d985c9e5e7768e",
+        "v2:13+646789aeed7df999b385ac361e7722df",
+        "v2:14+5d3c6b8f227ca69e10500f5ade47b06f",
+        "v2:15+ce7cc611d29ea463a8c31fca207b022a",
+        "v2:16+b7d63b983794b0b0cf1277ee895ab615",
+        "v2:17+60e4ddd98e0d0b6378c5a618d4142c4a",
+        "v2:18+f03084e8a3de8873b32885c03107c077",
+        "v2:19+132a373273cfcef6dacc82397da280e6",
+        "v2:20+a438352933b765f64cf779f4715a4af7",
+        "v2:21+995bde0581ed6435a90218e3134f27b2",
+        "v2:22+9cca116f2ffb1ed0c49f59fd4c6ad914",
+        "v2:23+ad17a347d7ca5f73423fa8e0fa075e33",
+        "v2:24+c011b58a062f36d589b04ff28f46b617",
+        "v2:25+c326ec89209d82508eb362bb7d8fc7a3",
+        "v2:26+a1b31acde1afee7c94e92e74283fcda4"
+      ]
+    },
+    {
+      "id": "japanese_explicit",
+      "text": "今日は朝からよく晴れていたので、近所の公園を散歩しました。木陰のベンチで本を読んでいると、子どもたちの楽しそうな声が聞こえてきました。",
+      "settings": {
+        "num_bands": 4,
+        "band_size": 8
+      },
+      "expected_keys": [
+        "v2:0+403d248bf5f8a03f0f20c425bedf73ab",
+        "v2:1+f767e2d5412e098e40a4bfd8ff33a58d",
+        "v2:2+23a78b6349cd03d07df6a88954137038",
+        "v2:3+1a8128a1ad57839964af8d419e39b1fa"
+      ]
+    },
+    {
+      "id": "english_default",
+      "text": "The rain stopped just before lunch, so we walked to the neighborhood cafe. We ordered coffee and talked about our plans for the weekend.",
+      "settings": {},
+      "expected_keys": [
+        "v2:0+dd14d3d8946193342f28fbd4bc52c723",
+        "v2:1+9b5117342b16995f568e14642627f6aa",
+        "v2:2+1257927f7ba75098a33d1a625da52e81",
+        "v2:3+d96997cc874564096084bdf989f224b3",
+        "v2:4+f71921dd9128926e72df0806e6a3c14b",
+        "v2:5+b76ee8e3338e9c7a4506bdf9bf6f2f6e",
+        "v2:6+821cda3c1d6d025a0042285144e84e1d",
+        "v2:7+a436261a57d14b4972f68c3d5ab0f20d",
+        "v2:8+bfb0c93d2181e0ae89bcaabe69be4b2f",
+        "v2:9+2e7839c4c65793876a66c4f8efa15ed8",
+        "v2:10+5e1a123b3c6ed3a35a9da127980e1fbe",
+        "v2:11+0c48e1b28c90a02cce2436dc5928fab2",
+        "v2:12+45d959fd9dfcb2e84db35f44aca029a8",
+        "v2:13+ddc9f38aaba02c08eba07df6363c87f7",
+        "v2:14+d62e1b10aba52099681fbccd2f21653a",
+        "v2:15+ce5715bb8d82119c78acbef009c24961",
+        "v2:16+a8ad2d7a71805822c680bc3f6cc9cdf6",
+        "v2:17+a5655e422db16049184446dbc8c7ec62",
+        "v2:18+9c835ffab46e63c5c2a62b9b02842816",
+        "v2:19+5d5a1d4f3bc5c5a4576f256c0b4a940f",
+        "v2:20+9a9b7309827e25b1406ba5e1499114d7",
+        "v2:21+7d7fe84d000e8a26c078896001346e7a",
+        "v2:22+4ec2e817cfe43defcc693944d3d4d5f8",
+        "v2:23+c889eb892749cc1318f6f52393597f14",
+        "v2:24+bdc6a3818334308f0c5ca7c62adccee3",
+        "v2:25+289bb672dc51a21fc84bf6697e15c730",
+        "v2:26+07af0586eae0337ed4b65dbe63a19154"
+      ]
+    },
+    {
+      "id": "english_explicit",
+      "text": "The rain stopped just before lunch, so we walked to the neighborhood cafe. We ordered coffee and talked about our plans for the weekend.",
+      "settings": {
+        "num_bands": 4,
+        "band_size": 8
+      },
+      "expected_keys": [
+        "v2:0+3d88314f063431edb15114e9ad5cba3f",
+        "v2:1+d06c5f0c2c27e9e3f456ec7bb96ee72e",
+        "v2:2+d963de74a9348e5a59832173302f9e8c",
+        "v2:3+3881cbfed7a4eadfefbf9354eb1f9c56"
+      ]
+    },
+    {
+      "id": "english_word_ngrams",
+      "text": "The rain stopped just before lunch, so we walked to the neighborhood cafe. We ordered coffee and talked about our plans for the weekend.",
+      "settings": {
+        "num_perm": 64,
+        "threshold": 0.7,
+        "n_grams": 3,
+        "seed": 7,
+        "tokenizer": "non_alpha_num_splitter"
+      },
+      "expected_keys": [
+        "v2:0+4475e06a3a82cc61531abbded1686e52",
+        "v2:1+f9bdf94eb864afed179f033773043e3c",
+        "v2:2+b0c2f489da22a17711333016583d399e",
+        "v2:3+c4fa2acb346223df70d3100285278c4a",
+        "v2:4+697cb52e0f697e39069accac79306dc7",
+        "v2:5+9245cf487e0ac941c6f54d821444b283",
+        "v2:6+7754f9be45a0ce2afe47b52bb41041d6",
+        "v2:7+3f661f47b2a76d0ecd5059415b842c86"
+      ]
+    }
+  ],
+  "key_format": "v2:<band_idx>+<digest32hex>",
+  "character_ngrams": "Contiguous text slices without inserted separators"
+}

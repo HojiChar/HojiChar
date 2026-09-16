@@ -75,6 +75,56 @@ def test_calculate_minhash_signature_length_and_dtype():
     assert sig.dtype == np.uint32
 
 
+@pytest.mark.parametrize(
+    "text,n_grams,expected_tokens",
+    [
+        ("", 3, []),
+        ("ab", 3, []),
+        ("abc", 3, ["abc"]),
+        ("a b\nc", 3, ["a b", " b\n", "b\nc"]),
+        ("日本語😀", 2, ["日本", "本語", "語😀"]),
+        ("a😀", 1, ["a", "😀"]),
+    ],
+)
+def test_character_ngrams_use_text_slices(text, n_grams, expected_tokens):
+    filt = module.GenerateDedupLSH(num_bands=3, band_size=4, n_grams=n_grams)
+    reference = module.RMinHash(num_perm=12, seed=42)
+    reference.update(expected_tokens)
+    np.testing.assert_array_equal(filt.calculate_minhash_signature(text), reference.digest())
+
+
+def test_custom_tokenizer_keeps_space_joined_ngrams():
+    calls = []
+
+    def tokenize(text):
+        calls.append(text)
+        return iter(["ab", "c", "日本語", "😀"])
+
+    filt = module.GenerateDedupLSH(num_bands=3, band_size=4, n_grams=2, tokenizer=tokenize)
+    reference = module.RMinHash(num_perm=12, seed=42)
+    reference.update(["ab c", "c 日本語", "日本語 😀"])
+    np.testing.assert_array_equal(filt.calculate_minhash_signature("input"), reference.digest())
+    assert calls == ["input"]
+
+
+@pytest.mark.parametrize("n_grams", [0, -1])
+def test_nonpositive_ngram_size(n_grams):
+    with pytest.raises(ValueError, match="n_grams must be positive"):
+        module.GenerateDedupLSH(n_grams=n_grams)
+
+
+@pytest.mark.parametrize("text", ["", "ab", "日本語とEnglish 😀\nテスト"])
+@pytest.mark.parametrize("settings", [{}, {"num_bands": 3, "band_size": 4}])
+def test_fast_keys_match_public_signature_api(text, settings):
+    filt = module.GenerateDedupLSH(**settings)
+    signature = filt.calculate_minhash_signature(text)
+    expected = [
+        filt._format_lsh_key(i, filt.signature_to_lsh_digest(signature, filt.band_size, i))
+        for i in range(filt.num_bands)
+    ]
+    assert filt.apply(Document(text=text)).extras["dedup_lsh"] == expected
+
+
 @pytest.mark.parametrize("num_perm,threshold", [(1, -1.0), (500, 0.8), (1000, 2.0)])
 def test_explicit_bands_ignore_automatic_settings(monkeypatch, num_perm, threshold):
     def fail_if_called(**kwargs):
