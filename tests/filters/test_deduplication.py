@@ -1,10 +1,43 @@
+import json
 import re
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from hojichar.core.models import Document
 from hojichar.filters import deduplication as module
+
+# Golden values from datasketch 1.6.5; dependency versions are recorded in the fixture.
+# Do not regenerate these automatically when upgrading dependencies: changes affect
+# compatibility with persisted LSH keys and must be reviewed.
+_LSH_PARAMS_BASELINE = json.loads(
+    (Path(__file__).parents[1] / "fixtures" / "deduplication_lsh_params.json").read_text()
+)
+
+# Full output snapshots cover tokenization, MinHash, band slicing, and key formatting.
+# Review compatibility before changing these expected keys; never regenerate in tests.
+_LSH_KEYS_BASELINE = json.loads(
+    (Path(__file__).parents[1] / "fixtures" / "deduplication_lsh_keys_v2.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+@pytest.mark.parametrize("case", _LSH_KEYS_BASELINE["cases"], ids=lambda case: case["id"])
+def test_natural_language_lsh_keys_match_baseline(case):
+    settings = dict(case["settings"])
+    if "tokenizer" in settings:
+        settings["tokenizer"] = getattr(module, settings["tokenizer"])
+    filt = module.GenerateDedupLSH(**settings)
+    document = filt.apply(Document(text=case["text"]))
+    assert document.extras["dedup_lsh"] == case["expected_keys"]
+
+
+@pytest.mark.parametrize("num_perm,threshold,num_bands,band_size", _LSH_PARAMS_BASELINE["cases"])
+def test_automatic_lsh_params_match_baseline(num_perm, threshold, num_bands, band_size):
+    filt = module.GenerateDedupLSH(num_perm=num_perm, threshold=threshold)
+    assert (filt.num_bands, filt.band_size) == (num_bands, band_size)
 
 
 def test_char_level_splitter():
@@ -42,6 +75,92 @@ def test_calculate_minhash_signature_length_and_dtype():
     assert sig.dtype == np.uint32
 
 
+@pytest.mark.parametrize(
+    "text,n_grams,expected_tokens",
+    [
+        ("", 3, []),
+        ("ab", 3, []),
+        ("abc", 3, ["abc"]),
+        ("a b\nc", 3, ["a b", " b\n", "b\nc"]),
+        ("日本語😀", 2, ["日本", "本語", "語😀"]),
+        ("a😀", 1, ["a", "😀"]),
+    ],
+)
+def test_character_ngrams_use_text_slices(text, n_grams, expected_tokens):
+    filt = module.GenerateDedupLSH(num_bands=3, band_size=4, n_grams=n_grams)
+    reference = module.RMinHash(num_perm=12, seed=42)
+    reference.update(expected_tokens)
+    np.testing.assert_array_equal(filt.calculate_minhash_signature(text), reference.digest())
+
+
+def test_custom_tokenizer_keeps_space_joined_ngrams():
+    calls = []
+
+    def tokenize(text):
+        calls.append(text)
+        return iter(["ab", "c", "日本語", "😀"])
+
+    filt = module.GenerateDedupLSH(num_bands=3, band_size=4, n_grams=2, tokenizer=tokenize)
+    reference = module.RMinHash(num_perm=12, seed=42)
+    reference.update(["ab c", "c 日本語", "日本語 😀"])
+    np.testing.assert_array_equal(filt.calculate_minhash_signature("input"), reference.digest())
+    assert calls == ["input"]
+
+
+@pytest.mark.parametrize("n_grams", [0, -1])
+def test_nonpositive_ngram_size(n_grams):
+    with pytest.raises(ValueError, match="n_grams must be positive"):
+        module.GenerateDedupLSH(n_grams=n_grams)
+
+
+@pytest.mark.parametrize("text", ["", "ab", "日本語とEnglish 😀\nテスト"])
+@pytest.mark.parametrize("settings", [{}, {"num_bands": 3, "band_size": 4}])
+def test_fast_keys_match_public_signature_api(text, settings):
+    filt = module.GenerateDedupLSH(**settings)
+    signature = filt.calculate_minhash_signature(text)
+    expected = [
+        filt._format_lsh_key(i, filt.signature_to_lsh_digest(signature, filt.band_size, i))
+        for i in range(filt.num_bands)
+    ]
+    assert filt.apply(Document(text=text)).extras["dedup_lsh"] == expected
+
+
+@pytest.mark.parametrize("num_perm,threshold", [(1, -1.0), (500, 0.8), (1000, 2.0)])
+def test_explicit_bands_ignore_automatic_settings(monkeypatch, num_perm, threshold):
+    def fail_if_called(**kwargs):
+        pytest.fail("Explicit bands must bypass automatic parameter selection")
+
+    monkeypatch.setattr(module, "_optimal_param", fail_if_called)
+    filt = module.GenerateDedupLSH(
+        num_perm=num_perm,
+        threshold=threshold,
+        num_bands=3,
+        band_size=4,
+    )
+    assert filt.num_perm == 12
+    assert (filt.num_bands, filt.band_size) == (3, 4)
+    assert filt.calculate_minhash_signature("hello world").shape == (12,)
+    keys = filt.apply(Document(text="hello world")).extras["dedup_lsh"]
+    assert len(keys) == 3
+    reference = module.GenerateDedupLSH(num_bands=3, band_size=4)
+    assert keys == reference.apply(Document(text="hello world")).extras["dedup_lsh"]
+
+
+@pytest.mark.parametrize("kwargs", [{"num_bands": 3}, {"band_size": 4}])
+def test_incomplete_explicit_bands(kwargs):
+    with pytest.raises(ValueError, match="must be provided together"):
+        module.GenerateDedupLSH(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "num_bands,band_size",
+    [(0, 2), (2, 0), (-1, 2), (2, -1)],
+)
+def test_invalid_explicit_bands(num_bands, band_size):
+    with pytest.raises(ValueError, match="must be positive"):
+        module.GenerateDedupLSH(num_bands=num_bands, band_size=band_size)
+
+
 def test_signature_to_lsh_digest_repeatable():
     filt = module.GenerateDedupLSH(num_perm=10, threshold=0.5)
     sig = np.arange(10, dtype=np.uint32)
@@ -54,7 +173,7 @@ def test_signature_to_lsh_digest_repeatable():
 def test_format_lsh_key_zero_padding():
     filt = module.GenerateDedupLSH(num_perm=10, threshold=0.5)
     key = filt._format_lsh_key(2, 0x1A2B3C)
-    assert key.startswith("2+")
+    assert key == "v2:2+000000000000000000000000001a2b3c"
     hexpart = key.split("+", 1)[1]
     assert len(hexpart) == 32
     assert hexpart.endswith("00000000001a2b3c")
@@ -68,7 +187,7 @@ def test_apply_adds_lsh_keys_to_document():
     keys = doc.extras.get("dedup_lsh")
     assert isinstance(keys, list)
     assert len(keys) == filt.num_bands
-    pattern = re.compile(r"^\d+\+[0-9a-f]{32}$")
+    pattern = re.compile(r"^v2:\d+\+[0-9a-f]{32}$")
     for k in keys:
         assert pattern.match(k), f"invalid LSH key format: {k}"
 

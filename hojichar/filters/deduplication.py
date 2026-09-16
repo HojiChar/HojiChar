@@ -33,7 +33,7 @@ If the answer is yes the two documents are almost certainly similar; if no they 
   - This module uses `rensa.RMinHash` which is a fast MinHash implementation by Rust language.
 4. Banding and compression
   - Split the signature into b bands, each containing `r` integers (num_perm ≈ b×r).
-  - Treat the `r` integers as raw bytes, hash them with xxhash‑128, and format as <band_idx>+<digest32hex>.
+  - Treat the `r` integers as raw bytes, hash them with xxhash‑128, and format as v2:<band_idx>+<digest32hex>.
 5. Output
   - Store all band keys in `document.extras['dedup_lsh']` as a list of strings.
 
@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import struct
 import sys
 from collections import deque
 from itertools import islice
@@ -128,17 +129,25 @@ class GenerateDedupLSH(Filter):
         tokenizer (Callable[[str], Iterable[str]]): Function to tokenize text.
         n_grams (int): n-gram size for token grouping.
         seed (int): Random seed for MinHash.
-        num_bands (int): Number of LSH bands computed from threshold and num_perm.
+        num_bands (int): Number of LSH bands, specified explicitly or computed automatically.
         band_size (int): Number of hashes per band.
 
     Notes
     -----
-    `_optimal_param` searches for the optimal number of **bands** (`b`) and
+    When band parameters are omitted, `_optimal_param` searches for the optimal
+    number of **bands** (`b`) and
     **rows per band** (`r`) that minimise a weighted sum of false positives /
     false negatives at the specified *threshold*.
+
+    HojiChar 0.18.0 introduces ``v2:`` keys using Rensa 0.5 and an optimized
+    hashing path. Hash generation was over 4x faster than HojiChar 0.17.3
+    in our 2,000-character English benchmark. Hashes differ from
+    HojiChar 0.17.x. Please rebuild your deduplication fingerprints,
+    or keep using HojiChar 0.17.x if you want to use existing LSH pool.
     """
 
     _BYTES_PER_U32: Final[int] = 4
+    _LSH_KEY_VERSION: Final[str] = "v2"
 
     def __init__(
         self,
@@ -147,6 +156,9 @@ class GenerateDedupLSH(Filter):
         tokenizer: Callable[[str], Iterable[str]] = char_level_splitter,
         n_grams: int = 5,
         seed: int = 42,
+        *,
+        num_bands: Optional[int] = None,
+        band_size: Optional[int] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -154,28 +166,57 @@ class GenerateDedupLSH(Filter):
 
         Args:
             num_perm: Number of hash permutations for MinHash signature length.
+                Ignored when num_bands and band_size are both provided.
             threshold: Similarity threshold to decide optimal LSH parameters.
+                Ignored when num_bands and band_size are both provided.
             tokenizer: Function to split text into tokens.
             n_grams: Number of tokens per n-gram for MinHash update.
             seed: Seed for hash permutation consistency.
+            num_bands: Explicit number of LSH bands. Must be a positive integer
+                and provided together with band_size.
+            band_size: Explicit number of hashes per band. Must be a positive integer
+                and provided together with num_bands. When both are provided,
+                automatic selection is bypassed and the MinHash signature length
+                (self.num_perm) is set to num_bands * band_size.
             **kwargs: Additional keyword arguments for parent Filter.
         """
         super().__init__(**kwargs)
         if not is_loaded_dedup:
             raise ImportError(IS_LOADED_DEDUP_ERROR_MSG)
+        if n_grams <= 0:
+            raise ValueError("n_grams must be positive")
         self.num_perm = num_perm
         self.threshold = threshold
         self.tokenizer = tokenizer
         self.n_grams = n_grams
         self.seed = seed
 
-        # Compute optimal number of bands and band size based on threshold
-        self.num_bands, self.band_size = _optimal_param(
-            threshold=self.threshold,
-            num_perm=self.num_perm,
-            false_negative_weight=0.5,
-            false_positive_weight=0.5,
-        )
+        if num_bands is None and band_size is None:
+            self.num_bands, self.band_size = _optimal_param(
+                threshold=self.threshold,
+                num_perm=self.num_perm,
+                false_negative_weight=0.5,
+                false_positive_weight=0.5,
+            )
+        else:
+            if num_bands is None or band_size is None:
+                raise ValueError("num_bands and band_size must be provided together")
+            if num_bands <= 0 or band_size <= 0:
+                raise ValueError("num_bands and band_size must be positive")
+            self.num_bands = num_bands
+            self.band_size = band_size
+            self.num_perm = num_bands * band_size
+
+    def _calculate_minhash_digest(self, text: str) -> list[int]:
+        """Compute the raw digest shared by the array API and the LSH fast path."""
+        if self.tokenizer is char_level_splitter:
+            n = self.n_grams
+            tokens = [text[i : i + n] for i in range(len(text) - n + 1)]
+        else:
+            tokens = [" ".join(grams) for grams in _ngrams(self.tokenizer(text), self.n_grams)]
+        minhash = RMinHash(num_perm=self.num_perm, seed=self.seed)
+        minhash.update(tokens)
+        return cast(list[int], minhash.digest())
 
     def calculate_minhash_signature(self, text: str) -> NDArray[np.uint32]:
         """
@@ -192,15 +233,7 @@ class GenerateDedupLSH(Filter):
         Returns:
             A 1D numpy array of shape (num_perm,) with dtype uint32.
         """
-        tokens = self.tokenizer(text)
-        n_gram_tokens = _ngrams(tokens, self.n_grams)
-        # Join tokens into string n-grams for hashing
-        tokens = [" ".join(grams) for grams in n_gram_tokens]
-        # Initialize and update RMinHash
-        minhash = RMinHash(num_perm=self.num_perm, seed=self.seed)
-        minhash.update(tokens)
-        # Convert digest (list of ints) to numpy uint32 array
-        return np.asarray(minhash.digest(), dtype=np.uint32)
+        return np.asarray(self._calculate_minhash_digest(text), dtype=np.uint32)
 
     def _sig_bytes_le(self, sig: NDArray[np.uint32]) -> memoryview:
         """
@@ -257,16 +290,16 @@ class GenerateDedupLSH(Filter):
 
     def _format_lsh_key(self, band_idx: int, digest: int) -> str:
         """
-        Format the LSH key for a given band index and digest.
+        Format the LSH key with the HojiChar scheme version, band index, and digest.
         """
-        return f"{band_idx}+{digest:032x}"
+        return f"{self._LSH_KEY_VERSION}:{band_idx}+{digest:032x}"
 
     def apply(self, document: Document) -> Document:
         """
         Decorate the document with LSH deduplication keys.
 
         For each band, compute the digest and format as a hex string:
-            '<band_idx>+<128-bit-digest-hex>'.
+            'v2:<band_idx>+<128-bit-digest-hex>'.
         Keys are stored in document.extras['dedup_lsh'].
 
         Args:
@@ -275,10 +308,14 @@ class GenerateDedupLSH(Filter):
         Returns:
             The same Document object with 'dedup_lsh' added in extras.
         """
-        signature = self.calculate_minhash_signature(document.text)
+        digest = self._calculate_minhash_digest(document.text)
+        # Pack once in little-endian order without an intermediate NumPy array.
+        signature_bytes = memoryview(struct.pack(f"<{self.num_perm}I", *digest))
+        band_bytes = self.band_size * self._BYTES_PER_U32
         lsh_keys = [
-            self._format_lsh_key(
-                band_idx, self.signature_to_lsh_digest(signature, self.band_size, band_idx)
+            f"{self._LSH_KEY_VERSION}:{band_idx}+"
+            + xxhash.xxh128_hexdigest(
+                signature_bytes[band_idx * band_bytes : (band_idx + 1) * band_bytes]
             )
             for band_idx in range(self.num_bands)
         ]

@@ -40,7 +40,8 @@ dedup = [
     "datasketch>=1.6.5",
     "fugashi>=1.5.1",
     "redis>=6.2.0",
-    "rensa>=0.2.7",
+    # The v2 LSH key format uses Rensa 0.5.x signatures.
+    "rensa>=0.5.0,<0.6",
     "xxhash>=3.5.0",
 ]
 
