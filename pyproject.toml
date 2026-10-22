@@ -3,7 +3,7 @@ name = "hojichar"
 dynamic = ["version"]
 description = "Text preprocessing management system."
 authors = [{ name = "kenta.shinzato", email = "hoppiece@gmail.com" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 license = "Apache-2.0"
 dependencies = [
@@ -14,7 +14,6 @@ dependencies = [
 
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -32,9 +31,9 @@ all = [
     "requests>=2.32.3,<3",
 ]
 openai = [
-    "openai[aiohttp]>=1.89.0,<2.47; python_version < '3.10'",
-    "openai[aiohttp]>=1.89.0; python_version >= '3.10'",
-    "aiohttp>=3.12.14,<3.13; python_version < '3.10'",
+    "openai[aiohttp]>=1.89.0",
+    # GHSA-82r6-8w77-94w6: require the TLS hostname verification fix.
+    "anyio>=4.14.2",
 ]
 dedup = [
     "datasketch>=1.6.5",

@@ -32,6 +32,9 @@ For large text corpora, HojiChar also provides near-duplicate detection through 
 
 ## Install
 
+Python 3.10 or later is required. Python 3.9 is no longer supported because the
+security-fixed AnyIO dependency used by the OpenAI extra requires Python 3.10 or later.
+
 ```
 pip install hojichar
 ```
