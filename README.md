@@ -60,6 +60,8 @@ pip install 'hojichar[dedup]'
 On Python 3.15, the `all` and `dedup` extras currently build Fugashi from source.
 Install MeCab first: `brew install mecab` on macOS, or
 `sudo apt-get install libmecab-dev` on Debian/Ubuntu.
+This prerequisite is temporary until compatible Fugashi wheels are available;
+[issue #109](https://github.com/HojiChar/HojiChar/issues/109) tracks its removal.
 
 ## Defining a Compose Object
 

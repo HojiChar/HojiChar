@@ -26,7 +26,11 @@ jobs:
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           python-version: ${{ matrix.python-version }}
-      # Fugashi does not yet publish Python 3.15 wheels.
+      # Temporary: Fugashi does not yet publish Python 3.15 wheels.
+      # TODO: Remove both MeCab steps and the README prerequisite once uv.lock
+      # includes Fugashi wheels for Python 3.15 on both CI platforms/architectures.
+      # Track: https://github.com/HojiChar/HojiChar/issues/109
+      # Upstream: https://github.com/polm/fugashi/issues/119
       - name: Install MeCab for Python 3.15 (Linux)
         if: matrix.python-version == '3.15' && runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libmecab-dev
