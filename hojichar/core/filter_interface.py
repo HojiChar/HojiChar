@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, TypeVar, Union
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -41,7 +42,7 @@ class Filter(ABC):
         p: float = 1.0,
         skip_rejected: bool = True,
         *args: Any,
-        random_state: Optional[Union[int, np.random.Generator]] = None,
+        random_state: int | np.random.Generator | None = None,
         use_batch: bool = False,
         batch_size: int = 128,
         **kwargs: Any,
@@ -56,7 +57,7 @@ class Filter(ABC):
         skip_rejected : bool
             If `True`, the filter will skip documents that are already rejected.
             If you want to apply the filter to all documents (e.g., postprocess), set this to `False`.
-        random_state : Optional[Union[int, np.random.Generator]]
+        random_state : int | np.random.Generator | None
             Seed for the random number generator.
             If `None`, a new random number generator will be created.
             If `None`, and use in the `Compose` class, the random state is shared with the `Compose` object.
@@ -144,7 +145,7 @@ class Filter(ABC):
 
         return document
 
-    def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+    def apply_batch(self, batch: Sequence[Document]) -> list[Document]:
         """
         Apply the filter to a batch of documents.
         You can override this method if you want to
@@ -164,7 +165,7 @@ class Filter(ABC):
         """
         return [self.apply(document) for document in batch]
 
-    def _apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+    def _apply_batch(self, batch: Sequence[Document]) -> list[Document]:
         """
         Apply the filter to a batch of documents.
         This method
@@ -263,7 +264,7 @@ class Filter(ABC):
         """
         return self._statistics
 
-    def get_statistics_map(self) -> Dict[str, Any]:
+    def get_statistics_map(self) -> dict[str, Any]:
         """
         Get the statistics of this filter as a dictionary.
         """
@@ -286,7 +287,7 @@ class Filter(ABC):
         """
         self.shutdown()
 
-    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> Dict[str, Any]:
+    def get_jsonable_vars(self, exclude_keys: set[str] | None = None) -> dict[str, Any]:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],
@@ -303,8 +304,8 @@ class Filter(ABC):
     def _finalize_batch(
         self: "Filter",
         batch: Sequence[Document],
-        old_stats: List[Dict[str, Any]] = [],
-    ) -> List[Document]:
+        old_stats: list[dict[str, Any]] = [],
+    ) -> list[Document]:
         new_stats = [get_doc_info(doc) for doc in batch]
         for old, new, doc in zip(old_stats, new_stats, batch):
             self._statistics.update_by_diff(old, new)
@@ -312,7 +313,7 @@ class Filter(ABC):
                 doc.reject_reason = self.get_jsonable_vars()
         return list(batch)
 
-    def __init_rng(self, random_state: Optional[Union[int, np.random.Generator]]) -> None:
+    def __init_rng(self, random_state: int | np.random.Generator | None) -> None:
         self._owns_rng = True
         if random_state is None:
             self._rng = np.random.default_rng()
@@ -371,7 +372,7 @@ class TokenFilter(Filter, ABC):
             return document
         return self.apply_filter(document)
 
-    def get_jsonable_vars(self, exclude_keys: Optional[Set[str]] = None) -> dict:
+    def get_jsonable_vars(self, exclude_keys: set[str] | None = None) -> dict:
         """
         Get the member variable of this filter.
         Eligible variables are primitive types; [bool, int, float, str, None],

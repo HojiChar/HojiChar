@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass, fields
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from hojichar.utils.warn_deprecation import deprecated_since
 
@@ -32,38 +32,38 @@ class Document:
     Attributes:
         text (str): The text content of the document.
         is_rejected (bool): A flag indicating whether the document is rejected.
-        extras (Dict[str, Any]): A dictionary to store additional metadata about the document.
-        reject_reason (Dict[str, Any]): A dictionary to store the reason for rejection. The
+        extras (dict[str, Any]): A dictionary to store additional metadata about the document.
+        reject_reason (dict[str, Any]): A dictionary to store the reason for rejection. The
           filter class and the member name and value will logged at the filter is logged here.
-        initial_stats (Optional[Dict[str, Any]]): Internal copy of the document statistics
+        initial_stats (dict[str, Any] | None): Internal copy of the document statistics
           captured before the pipeline mutates the document.
 
     Next attributes will be deprecated in future versions:
-        tokens (List[Token]): A list of tokens extracted from the document.
+        tokens (list[Token]): A list of tokens extracted from the document.
     """
 
     def __init__(
         self,
         text: str,
         is_rejected: bool = False,
-        tokens: Optional[List[Token]] = None,
-        extras: Optional[Dict[str, Any]] = None,
+        tokens: list[Token] | None = None,
+        extras: dict[str, Any] | None = None,
     ) -> None:
         self.text = text
         self.__original = text
         self.is_rejected = is_rejected
         if tokens is None:
-            self.tokens: List[Token] = []
+            self.tokens: list[Token] = []
         else:
             self.tokens = tokens
 
         if extras is None:
-            self.extras: Dict[str, Any] = {}
+            self.extras: dict[str, Any] = {}
         else:
             self.extras = extras
 
-        self.reject_reason: Dict[str, Any] = {}
-        self._initial_stats: Optional[dict[str, Any]] = None
+        self.reject_reason: dict[str, Any] = {}
+        self._initial_stats: dict[str, Any] | None = None
         if "__init_stats" in self.extras:
             self._initial_stats = self.extras.pop("__init_stats")
 
@@ -78,7 +78,7 @@ class Document:
         """
         self._initial_stats = stats
 
-    def _get_initial_stats(self) -> Optional[dict[str, Any]]:
+    def _get_initial_stats(self) -> dict[str, Any] | None:
         """
         Retrieve the stored initial statistics of the document, if available.
         Internal API: not intended for filter implementations.
@@ -93,11 +93,11 @@ class Document:
         self._initial_stats = None
 
     @deprecated_since("1.0.0")
-    def set_tokens(self, tokens: List[str]) -> None:
+    def set_tokens(self, tokens: list[str]) -> None:
         self.tokens = [Token(token) for token in tokens]
 
     @deprecated_since("1.0.0")
-    def get_tokens(self) -> List[str]:
+    def get_tokens(self) -> list[str]:
         return [token.text for token in self.tokens]
 
     def __str__(self) -> str:
@@ -115,7 +115,7 @@ class Statistics:
     Statistics class to track the performance of the document processing pipeline.
     """
 
-    name: Optional[str] = None
+    name: str | None = None
     input_num: int = 0
     input_bytes: int = 0
     input_chars: int = 0
@@ -128,7 +128,7 @@ class Statistics:
     cumulative_time_ns: int = 0
     errors: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert the Statistics object to a dictionary.
         """
@@ -220,7 +220,7 @@ class Statistics:
         )
 
     @staticmethod
-    def add_list_of_stats(x: List["Statistics"], y: List["Statistics"]) -> List["Statistics"]:
+    def add_list_of_stats(x: list["Statistics"], y: list["Statistics"]) -> list["Statistics"]:
         """
         Add FilterStatistics objects from two lists by matching their names.
         This method assumes that both lists contain FilterStatistics objects
@@ -236,7 +236,7 @@ class Statistics:
         y_map = {stat.name: stat for stat in y}
 
         # keep the order of x and add corresponding y
-        result: List[Statistics] = []
+        result: list[Statistics] = []
         for stat_x in x:
             stat_y = y_map[stat_x.name]
             result.append(Statistics.add(stat_x, stat_y))
@@ -244,7 +244,7 @@ class Statistics:
         return result
 
     @staticmethod
-    def get_filter(name: str, stats: List["Statistics"]) -> "Statistics":
+    def get_filter(name: str, stats: list["Statistics"]) -> "Statistics":
         """
         Get a Statistics object by its name from a list of statistics.
         If the name is not found, return None.

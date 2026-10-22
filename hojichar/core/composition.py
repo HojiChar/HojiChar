@@ -1,7 +1,8 @@
 import json
 import logging
 import pprint
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -14,8 +15,8 @@ from hojichar.utils.warn_deprecation import deprecated_since
 class Compose(Filter):
     def __init__(
         self,
-        filters: List[Union[Filter, TokenFilter]],
-        random_state: Optional[Union[int, np.random.Generator]] = None,
+        filters: list[Filter | TokenFilter],
+        random_state: int | np.random.Generator | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -26,10 +27,10 @@ class Compose(Filter):
 
         Parameters
         ----------
-        filters : List[Union[Filter, TokenFilter]]
+        filters : list[Filter | TokenFilter]
             Filter instances which apply to the corpus.
 
-        random_state : Union[None, int, np.random.Generator], optional
+        random_state : int | np.random.Generator | None, optional
             Default = None
             Seed for applying filters randomly.
             `random_state` must be int or np.random.Generator instance.
@@ -40,15 +41,15 @@ class Compose(Filter):
 
         self._statistics.name = "Total"
 
-    def set_filters(self, filters: List[Union[Filter, TokenFilter]]) -> None:
+    def set_filters(self, filters: list[Filter | TokenFilter]) -> None:
         """
         Set the filter to a Compose object. The filter is expanded if the
         list of filters in the argument contains a filter bound by Compose.
 
         Args:
-            filters (List[Union[Filter, TokenFilter]]): Target filters
+            filters (list[Filter | TokenFilter]): Target filters
         """
-        self.filters: List[Union[Filter, TokenFilter]] = []
+        self.filters: list[Filter | TokenFilter] = []
 
         filter_idx = 0
         for f in filters:
@@ -91,7 +92,7 @@ class Compose(Filter):
         self._statistics.update_by_diff(stat, new_stat)
         return document
 
-    def apply_batch(self, batch: Sequence[Document]) -> List[Document]:
+    def apply_batch(self, batch: Sequence[Document]) -> list[Document]:
         """
         Apply the composed filter to a batch of documents and return the processed documents.
         The `apply_batch` method implemented in sub-filters is called in order.
@@ -136,7 +137,7 @@ class Compose(Filter):
             doc._set_initial_stats(get_doc_info(doc))
             yield doc
 
-    def get_total_statistics(self) -> List[Statistics]:
+    def get_total_statistics(self) -> list[Statistics]:
         """
         Get the statistics of the Compose object and sub filters.
 
@@ -149,7 +150,7 @@ class Compose(Filter):
             stats.append(filt.get_statistics())
         return stats
 
-    def get_total_statistics_map(self) -> List[Dict[str, Any]]:
+    def get_total_statistics_map(self) -> list[dict[str, Any]]:
         """
         Get the statistics of the Compose object and sub filters as a list of dictionaries.
         """

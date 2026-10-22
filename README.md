@@ -32,8 +32,8 @@ For large text corpora, HojiChar also provides near-duplicate detection through 
 
 ## Install
 
-Python 3.10 or later is required. Python 3.9 is no longer supported because the
-security-fixed AnyIO dependency used by the OpenAI extra requires Python 3.10 or later.
+Python 3.10 or later is required. CI tests Python 3.10 through 3.15 on Linux and macOS.
+Python 3.9 is no longer supported.
 
 ```
 pip install hojichar
@@ -56,6 +56,11 @@ If you want to use the near-deduplication (using MinHash LSH algorithm) filter, 
 ```
 pip install 'hojichar[dedup]'
 ```
+
+On Python 3.15, the `all` and `dedup` extras currently build Fugashi from source.
+Install MeCab first: `brew install mecab` on macOS, or
+`sudo apt-get install libmecab-dev` on Debian/Ubuntu.
+
 ## Defining a Compose Object
 
 The [`Compose`](https://hojichar.github.io/HojiChar/hojichar.html#Compose) class in HojiChar allows you to create a sequence of text processing filters.

@@ -6,9 +6,10 @@ import string
 import time
 import unicodedata
 from collections import Counter
+from collections.abc import Iterable
 from itertools import groupby
 from os import PathLike
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -148,7 +149,7 @@ class JSONLoader(Filter):
         self,
         key: str = "text",
         ignore: bool = False,
-        extra_keys: Optional[List[str]] = None,
+        extra_keys: list[str] | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -276,8 +277,8 @@ class DocumentLengthFilter(Filter):
 
     def __init__(
         self,
-        min_doc_len: Optional[int] = None,
-        max_doc_len: Optional[int] = None,
+        min_doc_len: int | None = None,
+        max_doc_len: int | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -314,7 +315,7 @@ class NgWordsFilterJa(Filter):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike],
+        dict_path: str | PathLike[str],
         ignore_confused: bool = False,
         *args: Any,
         **kwargs: Any,
@@ -361,7 +362,7 @@ class NgWordsFilterEn(Filter):
     ファイルは単語が改行で羅列されたテキストファイルです.
     """
 
-    def __init__(self, dict_path: Union[str, PathLike], *args: Any, **kwargs: Any) -> None:
+    def __init__(self, dict_path: str | PathLike[str], *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         with open(dict_path, encoding="utf-8") as fp:
@@ -387,7 +388,7 @@ class DiscardAdultContentJa(NgWordsFilterJa):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/adult_keywords_ja.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/adult_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -419,7 +420,7 @@ class DiscardAdultContentEn(NgWordsFilterEn):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/adult_keywords_en.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/adult_keywords_en.txt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -446,7 +447,7 @@ class DiscardDiscriminationContentJa(NgWordsFilterJa):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/discrimination_keywords_ja.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/discrimination_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ):
@@ -474,7 +475,7 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/violence_keywords_ja.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/violence_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -533,7 +534,7 @@ class DiscardAds(Filter):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
         max_allowed_num: int = 14,
         *args: Any,
         **kwargs: Any,
@@ -631,7 +632,7 @@ class HeaderFooterTagsRemover(Filter):
 
     def __init__(
         self,
-        dict_path: Union[str, PathLike] = BASE_PATH / "dict/header_footer_keywords_ja.txt",
+        dict_path: str | PathLike[str] = BASE_PATH / "dict/header_footer_keywords_ja.txt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -837,11 +838,11 @@ class CharRepetitionRatioFilter(Filter):
     def compute_character_repetition_ratio(
         document: str, character_repetition_length: int
     ) -> float:
-        def get_freq_character_ngrams(document: str, n: int) -> Dict[str, int]:
-            character_ngrams: List[str] = [
+        def get_freq_character_ngrams(document: str, n: int) -> dict[str, int]:
+            character_ngrams: list[str] = [
                 document[i : i + n] for i in range(len(document) - n + 1)
             ]
-            freq_character_ngrams_dict: Dict[str, int] = {}
+            freq_character_ngrams_dict: dict[str, int] = {}
             for character_ngram in character_ngrams:
                 freq_character_ngrams_dict[character_ngram] = (
                     freq_character_ngrams_dict.get(character_ngram, 0) + 1
@@ -853,7 +854,7 @@ class CharRepetitionRatioFilter(Filter):
         )
         if len(freq_character_ngrams_dict) == 0:
             return 0.0
-        freq_character_ngrams: List[int] = list(freq_character_ngrams_dict.values())
+        freq_character_ngrams: list[int] = list(freq_character_ngrams_dict.values())
         freq_character_ngrams = sorted(freq_character_ngrams, reverse=True)
         val_one = len([el for el in freq_character_ngrams if el == 1])
         num_rep_character_ngrams = min(
@@ -924,8 +925,8 @@ class WordRepetitionRatioFilter(Filter):
         for i in range(0, len(text), step):
             yield text[i : i + step]
 
-    def _get_freq_word_ngrams(self, words: List[str], n: int) -> Dict[str, int]:
-        freq: Dict[str, int] = {}
+    def _get_freq_word_ngrams(self, words: list[str], n: int) -> dict[str, int]:
+        freq: dict[str, int] = {}
         if n <= 0 or len(words) < n:
             return freq
         for i in range(len(words) - n + 1):

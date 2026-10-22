@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import AsyncIterable
+from collections.abc import AsyncIterable
 
 import pytest
 

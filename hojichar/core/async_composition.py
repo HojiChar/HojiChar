@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator, AsyncIterable, Iterable, Sequence
 from concurrent.futures import Executor, ThreadPoolExecutor
-from typing import Any, AsyncGenerator, AsyncIterable, Iterable, Sequence
+from typing import Any
 
 import numpy as np
 

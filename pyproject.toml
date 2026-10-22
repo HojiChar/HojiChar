@@ -8,7 +8,8 @@ readme = "README.md"
 license = "Apache-2.0"
 dependencies = [
     "numpy>=1.26,<3 ; python_version < '3.14'",
-    "numpy>=2.4,<3 ; python_version >= '3.14'",
+    "numpy>=2.4,<3 ; python_version == '3.14'",
+    "numpy>=2.5.4,<3 ; python_version >= '3.15'",
     "tqdm>=4.65.0,<5",
 ]
 
@@ -19,6 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
 ]
@@ -85,6 +87,7 @@ explicit = true
 
 
 [tool.ruff]
+target-version = "py310"
 line-length = 99
 
 [tool.ruff.lint]
@@ -99,6 +102,9 @@ extend-select = [
   "I",   # isort
   "N",   # pep8-naming
   "Q",   # flake8-quotes
+  "UP006",  # built-in collection annotations
+  "UP007",  # PEP 604 union annotations
+  "UP035",  # current typing imports
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -120,6 +126,7 @@ profile = "black"
 line_length = 99
 
 [tool.mypy]
+python_version = "3.10"
 disallow_untyped_defs = true
 disallow_any_unimported = true
 no_implicit_optional = true

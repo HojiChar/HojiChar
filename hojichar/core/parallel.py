@@ -6,9 +6,9 @@ import multiprocessing
 import os
 import signal
 import threading
+from collections.abc import Iterator
 from copy import copy
 from multiprocessing.pool import Pool
-from typing import Iterator, List
 
 import hojichar
 from hojichar.core import inspection
@@ -60,7 +60,7 @@ def _init_worker(filter: hojichar.Compose, ignore_errors: bool) -> None:
 
 def _worker(
     doc: hojichar.Document,
-) -> tuple[hojichar.Document, int, List[Statistics], str | None]:
+) -> tuple[hojichar.Document, int, list[Statistics], str | None]:
     global PARALLEL_BASE_FILTER, WORKER_PARAM_IGNORE_ERRORS
     ignore_errors = WORKER_PARAM_IGNORE_ERRORS
     error_message = None
@@ -195,7 +195,7 @@ class Parallel:
         self.max_in_flight = max_in_flight
 
         self._pool: Pool | None = None
-        self._pid_stats: dict[int, List[Statistics]] | None = None
+        self._pid_stats: dict[int, list[Statistics]] | None = None
         self._gates: list[_InFlightGate] = []
 
     def __enter__(self) -> Parallel:
@@ -287,7 +287,7 @@ class Parallel:
                         filt._statistics.update(stat)
                         break
 
-    def get_total_statistics(self) -> List[Statistics]:
+    def get_total_statistics(self) -> list[Statistics]:
         """
         Returns a statistics object of the total statistical
         values processed within the Parallel block.
@@ -303,7 +303,7 @@ class Parallel:
         else:
             return []
 
-    def get_total_statistics_map(self) -> List[dict]:
+    def get_total_statistics_map(self) -> list[dict]:
         return [stat.to_dict() for stat in self.get_total_statistics()]
 
     @property

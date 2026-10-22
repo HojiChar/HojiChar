@@ -3,16 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterable,
-    Awaitable,
-    Callable,
-    Iterable,
-    Sequence,
-    TypeVar,
-)
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable, Iterable, Sequence
+from typing import Any, TypeVar
 
 import numpy as np
 
@@ -53,7 +45,7 @@ class AsyncFilter(ABC):
         skip_rejected : bool
             If `True`, the filter will skip documents that are already rejected.
             If you want to apply the filter to all documents (e.g., postprocess), set this to `False`.
-        random_state : Optional[Union[int, np.random.Generator]]
+        random_state : int | np.random.Generator | None
             Seed for the random number generator.
             If `None` is specified, the random number generator managed by the Compose class will be used.
         use_batch : bool

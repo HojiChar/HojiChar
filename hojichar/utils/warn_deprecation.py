@@ -1,13 +1,14 @@
 import inspect
 import logging
 import warnings
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def deprecated_since(version: str, alternative: Optional[str] = None) -> Callable[[Any], Any]:
+def deprecated_since(version: str, alternative: str | None = None) -> Callable[[Any], Any]:
     """
     Decorator to mark functions or classes as deprecated since a given version,
     emitting both a DeprecationWarning and a logging.warning().

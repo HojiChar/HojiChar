@@ -1,6 +1,7 @@
 import io
 import sys
-from typing import Iterator, TextIO
+from collections.abc import Iterator
+from typing import TextIO
 
 
 def stdin_iter() -> Iterator[str]:
