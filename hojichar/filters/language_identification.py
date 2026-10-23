@@ -4,7 +4,7 @@ import os
 import time
 from os import PathLike
 from pathlib import Path
-from typing import Any, Tuple, Union
+from typing import Any
 
 try:
     import requests
@@ -26,10 +26,8 @@ MODEL_CHECKSUM = "01810bc59c6a3d2b79c79e6336612f65"
 
 
 def _download_with_progress_bar(
-    download_url: str, save_path: Union[str, PathLike], retries: int = 3, delay: float = 1.0
+    download_url: str, save_path: str | PathLike[str], retries: int = 3, delay: float = 1.0
 ) -> None:
-    # HACK type hint `os.PathLike[str]` is not allowed in Python 3.8 or older.
-    # So I write Union[str, PathLike]. In the future, I will use `os.PathLike[str]` or simply Path.
     try:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
         with requests.get(download_url, stream=True) as r:
@@ -52,7 +50,7 @@ def _download_with_progress_bar(
             raise
 
 
-def _get_md5_hash_of_file(file_path: Union[str, PathLike]) -> str:
+def _get_md5_hash_of_file(file_path: str | PathLike[str]) -> str:
     """
     Function to calculate the MD5 hash of a file.
 
@@ -66,7 +64,7 @@ def _get_md5_hash_of_file(file_path: Union[str, PathLike]) -> str:
     return md5_hash.hexdigest()
 
 
-def _download_fasttext_model(model_path: Union[str, PathLike]) -> None:
+def _download_fasttext_model(model_path: str | PathLike[str]) -> None:
     logger.info(f"Downloading fasttext model from {FASTTEXT_MODEL_URL} to {model_path}...")
     _download_with_progress_bar(FASTTEXT_MODEL_URL, model_path)
 
@@ -90,7 +88,7 @@ class LanguageIdentificationByFastText(Filter):
         self,
         language: str,
         lang_score_threshold: float = 0.50,
-        model_path: Union[str, PathLike, None] = None,
+        model_path: str | PathLike[str] | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -131,7 +129,7 @@ class LanguageIdentificationByFastText(Filter):
         )
         self.model = load_model(str(self.model_path))
 
-    def _predict_language(self, text: str) -> Tuple[str, float]:
+    def _predict_language(self, text: str) -> tuple[str, float]:
         # fasttext cannot handle multiline input
         # so we must remove the newline character
         text = text.strip().replace("\n", " ")
@@ -165,7 +163,7 @@ class AcceptJapaneseByFastText(LanguageIdentificationByFastText):
     def __init__(
         self,
         lang_score_threshold: float = 0.50,
-        model_path: Union[str, PathLike, None] = None,
+        model_path: str | PathLike[str] | None = None,
         *args: Any,
         **kwargs: Any,
     ) -> None:

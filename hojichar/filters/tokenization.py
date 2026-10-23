@@ -1,4 +1,3 @@
-from typing import List
 
 from hojichar.core.filter_interface import Filter
 from hojichar.core.models import Document
@@ -15,7 +14,7 @@ class BlankCharTokenizer(Filter):
         document.set_tokens(tokens)
         return document
 
-    def tokenize(self, text: str) -> List[str]:
+    def tokenize(self, text: str) -> list[str]:
         """
         >>> BlankCharTokenizer().tokenize("hello world")
         ['hello', 'world']
@@ -29,7 +28,7 @@ class MergeTokens(Filter):
     破棄されていないトークンを結合し, Document を更新します.
     """
 
-    def merge(self, tokens: List[str]) -> str:
+    def merge(self, tokens: list[str]) -> str:
         """
         >>> MergeTokens().merge(["hoo", "bar"])
         'hoobar'
@@ -55,7 +54,7 @@ class SentenceTokenizer(Filter):
         document.set_tokens(tokens)
         return document
 
-    def tokenize(self, text: str) -> List[str]:
+    def tokenize(self, text: str) -> list[str]:
         """
         >>> SentenceTokenizer().tokenize("おはよう。おやすみ。ありがとう。さよなら。")
         ['おはよう。', 'おやすみ。', 'ありがとう。', 'さよなら。']

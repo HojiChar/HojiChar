@@ -3,19 +3,18 @@ from __future__ import annotations
 import importlib.util
 import logging
 import sys
+from collections.abc import Callable
 from os import PathLike
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import hojichar
 
 logger = logging.getLogger(__name__)
 
 
-def _load_module(path: Union[str, PathLike]) -> ModuleType:
-    # HACK type hint `os.PathLike[str]` is not allowed in Python 3.8 or older.
-    # So I write Union[str, PathLike]
+def _load_module(path: str | PathLike[str]) -> ModuleType:
     path_obj = Path(path)
     module_name = path_obj.stem
     spec = importlib.util.spec_from_file_location(module_name, path_obj)
@@ -27,7 +26,7 @@ def _load_module(path: Union[str, PathLike]) -> ModuleType:
 
 
 def load_filter_from_file(
-    profile_path: Union[str, PathLike],
+    profile_path: str | PathLike[str],
 ) -> hojichar.Compose | hojichar.AsyncCompose:
     """
     Loading a profile which has `FILTER` variable.
@@ -55,8 +54,8 @@ def load_filter_from_file(
 
 
 def load_factory_from_file(
-    profile_path: Union[str, PathLike],
-) -> Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose]:
+    profile_path: str | PathLike[str],
+) -> Callable[[Any | None], hojichar.Compose | hojichar.AsyncCompose]:
     """
     Loading a function by a profile which has `FACTORY` variable.
     Given path is added to sys.path automaticaly.
@@ -68,13 +67,13 @@ def load_factory_from_file(
         NotImplementedError:
 
     Returns:
-        Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose]:
+        Callable[[Any | None], hojichar.Compose | hojichar.AsyncCompose]:
             An alias of the function which returns Compose or AsyncCompose.
     """
     sys.path.append(str(Path(profile_path).parent))
     module = _load_module(profile_path)
     if hasattr(module, "FACTORY"):
-        factory: Callable[[Optional[Any]], hojichar.Compose | hojichar.AsyncCompose] = getattr(
+        factory: Callable[[Any | None], hojichar.Compose | hojichar.AsyncCompose] = getattr(
             module, "FACTORY"
         )
         return factory
@@ -83,7 +82,7 @@ def load_factory_from_file(
 
 
 def load_parametrized_filter_from_file(
-    profile_path: Union[str, PathLike], *factory_args: str
+    profile_path: str | PathLike[str], *factory_args: str
 ) -> hojichar.Compose | hojichar.AsyncCompose:
     factory = load_factory_from_file(profile_path)
     filter = factory(*factory_args)
@@ -91,7 +90,7 @@ def load_parametrized_filter_from_file(
 
 
 def load_compose(
-    profile_path: Union[str, PathLike], *factory_args: str
+    profile_path: str | PathLike[str], *factory_args: str
 ) -> hojichar.Compose | hojichar.AsyncCompose:
     """
     Loading a Compose file from profile. Loading a Compose file from the profile.

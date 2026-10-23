@@ -5,21 +5,10 @@ import itertools
 import logging
 import queue
 import threading
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterable,
-    Awaitable,
-    Callable,
-    Generic,
-    Iterable,
-    Iterator,
-    TextIO,
-    TypeVar,
-    cast,
-)
+from typing import Any, Generic, TextIO, TypeVar, cast
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)

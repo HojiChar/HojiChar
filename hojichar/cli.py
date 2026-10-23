@@ -5,7 +5,8 @@ import json
 import logging
 import os
 import sys
-from typing import Iterator, Optional, TextIO
+from collections.abc import Iterator
+from typing import TextIO
 
 import tqdm
 
@@ -21,7 +22,7 @@ logger = logging.getLogger("hojichar.cli")
 
 
 class ProgressBarIteratorWrapper:
-    def __init__(self, iter: Iterator[str], total_bytes: Optional[int] = None) -> None:
+    def __init__(self, iter: Iterator[str], total_bytes: int | None = None) -> None:
         self.iter = iter
         self.pbar = tqdm.tqdm(total=total_bytes, unit="B", unit_scale=True, unit_divisor=1024)
 

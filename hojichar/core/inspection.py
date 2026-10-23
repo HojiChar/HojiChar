@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import time
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from hojichar.core.filter_interface import Filter, TokenFilter
 from hojichar.core.models import Document, Statistics
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Inspector(Filter):
     def __init__(
-        self, target_filter: Union[Filter, TokenFilter], filter_idx: int, *args: Any, **kwargs: Any
+        self, target_filter: Filter | TokenFilter, filter_idx: int, *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger("hojichar.Inspector")
@@ -43,7 +43,7 @@ class FilterStatistics:
     discard_num: int = 0
     diff_bytes: int = 0
     cumulative_time_ns: int = 0
-    params: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    params: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def get_human_readable_values(self) -> dict:
         ret = {
@@ -115,7 +115,7 @@ class DocStatistics:
 @dataclasses.dataclass
 class StatsContainer:
     total_info: DocStatistics
-    layers_info: Dict[str, FilterStatistics]  # Key of the dict is filter name.
+    layers_info: dict[str, FilterStatistics]  # Key of the dict is filter name.
 
     def __add__(self, other: StatsContainer) -> StatsContainer:
         assert self.layers_info.keys() == other.layers_info.keys(), "Layer names must match"
@@ -140,7 +140,7 @@ class StatsContainer:
 
 
 class StatisticsCounter:
-    def __init__(self, inspectors: List[Inspector]) -> None:
+    def __init__(self, inspectors: list[Inspector]) -> None:
         counts = dict()
         for inspector in inspectors:
             counts[inspector.target] = FilterStatistics(
@@ -156,7 +156,7 @@ class StatisticsCounter:
         self,
         document: Document,
         before_process_inspector: Inspector,
-        inspectors: List[Inspector],
+        inspectors: list[Inspector],
     ) -> None:
         # Counting statistics for each filter
         previous_inspector = before_process_inspector
@@ -197,7 +197,7 @@ class StatisticsCounter:
 
 
 @deprecated_since("1.0.0", "Compose.get_total_statistics")
-def statistics_obj_adapter(stats: List["Statistics"]) -> StatsContainer:
+def statistics_obj_adapter(stats: list["Statistics"]) -> StatsContainer:
     total = Statistics.get_filter("Total", stats)
     total_info = DocStatistics(
         processed_num=total.input_num,

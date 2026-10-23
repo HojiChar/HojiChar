@@ -52,8 +52,9 @@ import re
 import struct
 import sys
 from collections import deque
+from collections.abc import Callable, Iterable
 from itertools import islice
-from typing import Any, Callable, Final, Iterable, Optional, cast
+from typing import Any, Final, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -71,7 +72,7 @@ except ImportError:
 
 from hojichar import Document, Filter
 
-_japanese_tagger: Optional["fugashi.Tagger"] = None  # type: ignore[name-defined] # noqa: F821
+_japanese_tagger: fugashi.Tagger | None = None  # type: ignore[name-defined] # noqa: F821
 NON_ALPHA = re.compile("[^A-Za-z_0-9]")
 IS_LOADED_DEDUP_ERROR_MSG = (
     "Failed to import redis, xxhash, rensa, or datasketch. "
@@ -157,8 +158,8 @@ class GenerateDedupLSH(Filter):
         n_grams: int = 5,
         seed: int = 42,
         *,
-        num_bands: Optional[int] = None,
-        band_size: Optional[int] = None,
+        num_bands: int | None = None,
+        band_size: int | None = None,
         **kwargs: Any,
     ) -> None:
         """
