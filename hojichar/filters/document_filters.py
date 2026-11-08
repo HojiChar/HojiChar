@@ -1016,26 +1016,43 @@ class SingleCharacterRepetitionFilter(Filter):
     そのような文書はノイズである可能性が高いため
     参考: BigScienceプロジェクトによると、oscarデータセットの中にバックスラッシュだけを2M個含むような文書が含まれていたらしい
     https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide/chronicles.md#2m-backslash-only-samples-in-our-dataset  # noqa: E501
+
+    デフォルトでは文書の長さにかかわらず, `threshold` 文字以上の繰り返しが1か所でもあれば破棄します.
+    そのため, 長い文書 (例えば 200,000 字のエージェントの実行ログ) にテスト結果の区切り線 "=====" が
+    1行あるだけでも破棄されます. `min_ratio` を指定すると, 繰り返しの長さが文書長に対して
+    `min_ratio` 以上の割合を占める場合にだけ破棄します.
+
+    >>> doc = "テストの実行ログです。\\n" * 2000 + "=" * 200
+    >>> SingleCharacterRepetitionFilter().apply(Document(doc)).is_rejected
+    True
+    >>> SingleCharacterRepetitionFilter(min_ratio=0.1).apply(Document(doc)).is_rejected
+    False
     """
 
     def __init__(
         self,
         threshold: int = 200,
         *args: Any,
+        min_ratio: float = 0.0,
         **kwargs: Any,
     ) -> None:
         """
         Args:
             threshold: The document is removed if character is repeated for this value or more
             *args:
+            min_ratio: The document is removed only if the repeated run is also at least this
+                fraction of the document length. Defaults to 0.0, which decides by `threshold`
+                alone.
             **kwargs:
         """
         super().__init__(*args, **kwargs)
         self.threshold = threshold
+        self.min_ratio = min_ratio
 
     def _is_repeat_contained(self, text: str) -> bool:
+        min_run = max(self.threshold, self.min_ratio * len(text))
         groups = groupby(text)
-        is_repeat_contained = any(sum(1 for _ in group) >= self.threshold for _, group in groups)
+        is_repeat_contained = any(sum(1 for _ in group) >= min_run for _, group in groups)
         return is_repeat_contained
 
     def apply(self, doc: Document) -> Document:
