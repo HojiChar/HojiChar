@@ -29,6 +29,27 @@ BASE_PATH = pathlib.Path(hojichar.__path__[0])
 logger = logging.getLogger(__name__)
 
 
+def _find_excessive_match(
+    pattern: re.Pattern[str],
+    text: str,
+    max_allowed_num: int,
+    min_matches_per_1k_chars: float,
+) -> re.Match[str] | None:
+    """
+    Return the first match of `pattern` in `text` when the matches are more than
+    `max_allowed_num` and at least `min_matches_per_1k_chars` per 1,000 characters,
+    otherwise None. The scan stops as soon as both conditions hold.
+    """
+    min_matches = min_matches_per_1k_chars * len(text) / 1000
+    first_match = None
+    for num_matches, match in enumerate(pattern.finditer(text), start=1):
+        if first_match is None:
+            first_match = match
+        if num_matches > max_allowed_num and num_matches >= min_matches:
+            return first_match
+    return None
+
+
 class ExampleHojiChar(Filter):
     """基本的なフィルタの実装例です. 末尾に'<hojichar>'を追加します."""
 
@@ -495,18 +516,43 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
 class DiscardBBSComments(Filter):
     """
-    正規表現 "BBS Pattern" に `max_allow_num` 回よりたくさんマッチする文書を破棄します.
-    `max_allow_num` のデフォルト値は14です.
-    正規表現 "BBS Pattern" は下記のリンクで検証可能です.
+    正規表現 "BBS Pattern" に `max_allowed_num` 回よりたくさんマッチする文書を破棄します.
+    `max_allowed_num` のデフォルト値は14です.
+
+    マッチ数は文書が長いほど増えるため, 固定の回数だけで判定すると, 日付や「ページ」「質問」を
+    含む長い文書 (学校だより・官公庁の PDF など) が長さだけを理由に破棄されます.
+    `min_matches_per_1k_chars` を指定すると, 1,000 字あたりのマッチ数がこの値以上の場合にだけ
+    破棄します. デフォルト値は 0.0 で, マッチ数だけで判定します.
+
+    正規表現 "BBS Pattern" は下記のリンクで検証可能です. ただし, リンク先は末尾に `|-` を含む
+    以前のパターンです. この `-` は, Markdown の表の区切り行やハイフンでつないだ語に含まれる
+    すべてのハイフンを1回のマッチとして数えていたため, 取り除きました.
     https://regex101.com/r/ybQvL2/1
     """
 
-    def __init__(self, max_allowed_num: int = 14, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        max_allowed_num: int = 14,
+        *args: Any,
+        min_matches_per_1k_chars: float = 0.0,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            max_allowed_num: The document is removed if the pattern matches more than this
+                number of times.
+            *args:
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
 
         self.max_allowed_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
         self.keyword_pat = re.compile(
-            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"  # noqa
+            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場"  # noqa
         )
 
     def apply(self, doc: Document) -> Document:
@@ -516,20 +562,29 @@ class DiscardBBSComments(Filter):
 
         >>> DiscardBBSComments().apply(Document("鏡餅")).is_rejected
         False
+
+        >>> DiscardBBSComments().apply(Document("| a | b |\\n| --- | --- |\\n" * 5)).is_rejected
+        False
         """
-        bbs_factor = self.keyword_pat.findall(doc.text)
-        if len(bbs_factor) > self.max_allowed_num:
+        match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allowed_num, self.min_matches_per_1k_chars
+        )
+        if match is not None:
             doc.is_rejected = True
         return doc
 
 
 class DiscardAds(Filter):
     """
-    主に広告キーワードを`max_allow_num`より多く含む文書を破棄します.
-    デフォルトで`max_allow_num` は14です.
+    主に広告キーワードを`max_allowed_num`より多く含む文書を破棄します.
+    デフォルトで`max_allowed_num` は14です.
     `dict_path` で指定したファイルから, 広告キーワードのリストを得ます.
     ファイルは単語が改行で羅列されたテキストファイルです.
     デフォルトの`dict_path` は /hojichar/dict/advertisement_keywords_ja.txt です.
+
+    `DiscardBBSComments` と同じく, `min_matches_per_1k_chars` を指定すると, 1,000 字あたりの
+    マッチ数がこの値以上の場合にだけ破棄します. 「お問い合わせ」などの語を含む長い文書が
+    長さだけを理由に破棄されるのを防ぎます. デフォルト値は 0.0 で, マッチ数だけで判定します.
     """
 
     def __init__(
@@ -537,11 +592,24 @@ class DiscardAds(Filter):
         dict_path: str | PathLike[str] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
         max_allowed_num: int = 14,
         *args: Any,
+        min_matches_per_1k_chars: float = 0.0,
         **kwargs: Any,
     ):
+        """
+        Args:
+            dict_path: Path to the keyword list, one keyword per line.
+            max_allowed_num: The document is removed if the keywords match more than this
+                number of times.
+            *args:
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
 
         self.max_allow_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
         ng_words = [re.escape(w.strip()) for w in ng_words if not len(w) == 0]
@@ -556,8 +624,10 @@ class DiscardAds(Filter):
         >>> DiscardAds().apply(Document("おはよう")).is_rejected
         False
         """
-        ads_factor = self.keyword_pat.findall(doc.text)
-        if len(ads_factor) > self.max_allow_num:
+        match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allow_num, self.min_matches_per_1k_chars
+        )
+        if match is not None:
             doc.is_rejected = True
         return doc
 
