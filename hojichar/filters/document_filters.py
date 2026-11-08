@@ -1236,3 +1236,67 @@ class DiscardTooShortLines(Filter):
         if (len(short_lines) / len(lines)) > self.threshold:
             doc.is_rejected = True
         return doc
+
+
+class CollapseRepeatedDocument(Filter):
+    """
+    文書全体が同じブロックの2回または3回の繰り返しになっている場合に, 1回分だけを残します.
+
+    テキスト抽出器がページを2回続けて出力した文書などを想定しています.
+    内容は1回分なら問題ないため, このフィルタは文書を破棄せず, テキストを書き換えます.
+
+    コピーの間には `max_separator_len` 字までの区切りを許し, 区切りの中身は比べません.
+    ブロックの前後の空白を除いて比べるため, 空白や改行だけの区切りは, これより長くても
+    畳まれる場合があります. 短い定型句の繰り返しを畳まないように, 残すブロックは
+    `min_block_len` 字以上とします. 文書の先頭と末尾 (3回の場合は中央も) を比べるだけなので,
+    計算量は文書長に比例します. 畳んだ場合は, 文書の前後の空白も取り除かれます.
+
+    >>> block = "HojiChar はテキストの前処理パイプラインを組み立てるための Python ライブラリです。"
+    >>> CollapseRepeatedDocument()(block + "\\n" + block) == block
+    True
+    >>> CollapseRepeatedDocument()(block + "\\n\\n" + block + "\\n\\n" + block + "\\n") == block
+    True
+    >>> CollapseRepeatedDocument()("短い文です。" * 2)
+    '短い文です。短い文です。'
+    """
+
+    def __init__(
+        self,
+        min_block_len: int = 40,
+        max_separator_len: int = 3,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            min_block_len: Minimum length of the block to keep. Shorter repeats are left as
+                they are.
+            max_separator_len: Maximum length of the text between copies. Its content is not
+                compared.
+            *args:
+            **kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        self.min_block_len = min_block_len
+        self.max_separator_len = max_separator_len
+
+    def apply(self, doc: Document) -> Document:
+        text = doc.text.strip()
+        n = len(text)
+        if n < 2 * self.min_block_len:
+            return doc
+        for num_copies in (2, 3):
+            for separator_len in range(self.max_separator_len + 1):
+                block_len = (n - separator_len * (num_copies - 1)) // num_copies
+                if block_len < self.min_block_len:
+                    continue
+                block = text[:block_len].rstrip()
+                if len(block) < self.min_block_len or block != text[n - block_len :].lstrip():
+                    continue
+                if num_copies == 3:
+                    middle_start = (n - block_len) // 2
+                    if block != text[middle_start : middle_start + block_len].strip():
+                        continue
+                doc.text = block
+                return doc
+        return doc
