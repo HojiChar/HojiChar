@@ -87,3 +87,25 @@ def test_kept_block_is_at_least_min_block_len() -> None:
 def test_max_separator_len() -> None:
     text = BLOCK + "【続きを読む】" + BLOCK
     assert CollapseRepeatedDocument(max_separator_len=7).apply(Document(text)).text == BLOCK
+
+
+@pytest.mark.parametrize("max_separator_len", [0, 1, 3])
+@pytest.mark.parametrize("separator_len", range(5))
+def test_two_copies_separator_limit(max_separator_len: int, separator_len: int) -> None:
+    text = BLOCK + "|" * separator_len + BLOCK
+    doc = CollapseRepeatedDocument(max_separator_len=max_separator_len).apply(Document(text))
+    assert doc.text == (BLOCK if separator_len <= max_separator_len else text)
+    assert not doc.is_rejected
+
+
+@pytest.mark.parametrize("max_separator_len", [0, 1, 3])
+@pytest.mark.parametrize("first_len", range(5))
+@pytest.mark.parametrize("second_len", range(5))
+def test_three_copies_independent_separator_limits(
+    max_separator_len: int, first_len: int, second_len: int
+) -> None:
+    text = BLOCK + "|" * first_len + BLOCK + "/" * second_len + BLOCK
+    doc = CollapseRepeatedDocument(max_separator_len=max_separator_len).apply(Document(text))
+    expected = BLOCK if max(first_len, second_len) <= max_separator_len else text
+    assert doc.text == expected
+    assert not doc.is_rejected

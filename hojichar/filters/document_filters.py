@@ -1286,16 +1286,22 @@ class CollapseRepeatedDocument(Filter):
         if n < 2 * self.min_block_len:
             return doc
         for num_copies in (2, 3):
-            for separator_len in range(self.max_separator_len + 1):
-                block_len = (n - separator_len * (num_copies - 1)) // num_copies
-                if block_len < self.min_block_len:
+            for total_separator_len in range(self.max_separator_len * (num_copies - 1) + 1):
+                block_len, remainder = divmod(n - total_separator_len, num_copies)
+                if remainder or block_len < self.min_block_len:
                     continue
                 block = text[:block_len].rstrip()
                 if len(block) < self.min_block_len or block != text[n - block_len :].lstrip():
                     continue
                 if num_copies == 3:
-                    middle_start = (n - block_len) // 2
-                    if block != text[middle_start : middle_start + block_len].strip():
+                    # Each separator has its own length; the middle copy need not be centered.
+                    min_first_len = max(0, total_separator_len - self.max_separator_len)
+                    max_first_len = min(self.max_separator_len, total_separator_len)
+                    for first_len in range(min_first_len, max_first_len + 1):
+                        middle_start = block_len + first_len
+                        if block == text[middle_start : middle_start + block_len].strip():
+                            break
+                    else:
                         continue
                 doc.text = block
                 return doc
