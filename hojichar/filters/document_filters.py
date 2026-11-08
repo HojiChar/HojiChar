@@ -781,6 +781,11 @@ class HeaderFooterTagsRemover(Filter):
 class MaskPersonalInformation(Filter):
     """
     ドキュメントに含まれる電話番号・電子メールアドレスを一部マスキングします.
+
+    電子メールアドレスのローカル部 ("@" の前) は, RFC 5321 の上限である 64 字までを対象にします.
+    "@" の前に英数字や記号が 64 字を超えて続く場合は, "@" の直前の 64 字からマスクします.
+    以前は上限がなく, 英数字や記号が長く続くテキスト (特に "@" を多く含むもの) では,
+    処理時間がその長さの2乗に比例していました.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -789,8 +794,12 @@ class MaskPersonalInformation(Filter):
         self.phone_pat = re.compile(
             r"((0|\+\d{1,3}[- ]?)(\d{2}[- ]?\d{4}[- ]?|\d[- ]?\d{4}[- ]?|\d{2}[- ]?\d{3}[- ]?|\d{3}[- ]?\d{2}[- ]?|\d{4}[- ]?\d{1}[- ]?))\d{4}"  # noqa
         )
+        # The local part is bounded to 64 characters, the limit of RFC 5321. Unbounded, a long
+        # run of these characters was rescanned from every position in it, which is quadratic
+        # in the run length. With the bound, at most 64 starting positions reach each "@", so
+        # the scan is linear in the text length.
         self.email_pat = re.compile(
-            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
+            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]{1,64}@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
         )
 
     def apply(self, doc: Document) -> Document:
@@ -819,9 +828,12 @@ class MaskPersonalInformation(Filter):
         'xxxx@yyy.com'
         >>> MaskPersonalInformation()('何かあれば hogehoge@example.ne.jp まで連絡')
         '何かあれば xxxx@yyy.jp まで連絡'
+        >>> MaskPersonalInformation()('a' * 70 + '@example.com')
+        'aaaaaaxxxx@yyy.com'
         """
         text = self.phone_pat.sub(r"\1XXXX", doc.text)
-        text = self.email_pat.sub(r"xxxx@yyy\1", text)
+        if "@" in text:
+            text = self.email_pat.sub(r"xxxx@yyy\1", text)
         doc.text = text
         return doc
 

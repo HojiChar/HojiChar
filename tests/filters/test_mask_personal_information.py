@@ -1,4 +1,42 @@
+import random
+import re
+import time
+
+import pytest
+
 from hojichar.filters.document_filters import MaskPersonalInformation
+
+# The e-mail pattern before the local part was bounded to 64 characters.
+LEGACY_EMAIL_PAT = re.compile(
+    r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"
+)
+
+
+PHONE_PAT = MaskPersonalInformation().phone_pat
+
+
+def legacy_mask(text: str) -> str:
+    """The output of `MaskPersonalInformation` with the legacy e-mail pattern."""
+    return LEGACY_EMAIL_PAT.sub(r"xxxx@yyy\1", PHONE_PAT.sub(r"\1XXXX", text))
+
+
+NORMAL_EMAIL_TEXTS = [
+    "hoge@example.com",
+    "hoge.fuga.111@foo.com",
+    "hogehoge@example.ne.jp",
+    "*-+|#$.@!!.com",
+    "first.last+tag@sub.example.co.uk",
+    "Email john_doe-99@mail-server.example.org.",
+    "連絡先: info@example.jp / support@example.com",
+    "メールはtaro.yamada@example.co.jpまで",
+    '<a href="mailto:taro@example.jp">taro@example.jp</a>',
+    "Message-ID: <CAF+abc123.def456@mail.gmail.com>",
+    "git clone git@github.com:HojiChar/HojiChar.git",
+    "a@b.c@d.e and a@b.com/c@d.org",
+    "user@localhost, @mention, foo@ and @bar.com",
+    "x" * 64 + "@example.com",
+    "宛先\nsales@example.com\ncc: hr@example.co.jp\n",
+]
 
 
 class TestMaskPhoneNumber:
@@ -76,3 +114,28 @@ class TestMaskEmailAddress:
             self.filt("何かあれば hogehoge@example.ne.jp まで連絡")
             == "何かあれば xxxx@yyy.jp まで連絡"
         )
+
+    @pytest.mark.parametrize("text", NORMAL_EMAIL_TEXTS)
+    def test_same_output_as_legacy_pattern(self, text):
+        assert self.filt(text) == legacy_mask(text)
+
+    def test_same_output_as_legacy_pattern_on_random_short_texts(self):
+        # A local part cannot exceed 64 characters in these texts, so the outputs must agree.
+        rng = random.Random(0)
+        alphabet = "ab9.-_!+/@@.. あ\n"
+        for _ in range(2000):
+            text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 64)))
+            assert self.filt(text) == legacy_mask(text), text
+
+    def test_long_local_part(self):
+        # Only the 64 characters before "@" are taken as the local part.
+        assert self.filt("a" * 70 + "@example.com") == "a" * 6 + "xxxx@yyy.com"
+
+    def test_long_runs_around_at_sign_are_fast(self):
+        # Long runs of address characters around "@" and no domain with a dot. The legacy
+        # pattern rescanned each run from every position in it: about 10 seconds on a laptop,
+        # against 0.04 seconds now.
+        text = ("a" * 20_000 + "@" + "b" * 20_000 + " ") * 5
+        start = time.perf_counter()
+        assert self.filt(text) == text
+        assert time.perf_counter() - start < 2.0
