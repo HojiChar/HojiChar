@@ -332,6 +332,14 @@ class NgWordsFilterJa(Filter):
     `ignore_confused` を `True` にすると,
     偽陽性を軽減するために, カタカナのNGワードは前後にカタカナが無い場合のみNG判定されます.
     デフォルト値は `False` です.
+
+    デフォルトでは, NGワードに1回でもマッチした文書を破棄します. `max_allowed_num` と
+    `min_matches_per_1k_chars` を指定すると, マッチ数が `max_allowed_num` 回より多く, かつ
+    1,000 字あたりのマッチ数が `min_matches_per_1k_chars` 以上の文書だけを破棄します.
+    NGワードが数回だけ現れる長い文書 (生物学の記事など) を残し, NGワードを並べたページを
+    破棄する用途を想定しています. この2つの引数は, このクラスを継承する
+    `DiscardAdultContentJa`, `DiscardDiscriminationContentJa`, `DiscardViolenceContentJa` でも
+    使えます.
     """
 
     def __init__(
@@ -339,9 +347,25 @@ class NgWordsFilterJa(Filter):
         dict_path: str | PathLike[str],
         ignore_confused: bool = False,
         *args: Any,
+        max_allowed_num: int = 0,
+        min_matches_per_1k_chars: float = 0.0,
         **kwargs: Any,
     ) -> None:
+        """
+        Args:
+            dict_path: Path to the NG word list, one word per line.
+            ignore_confused: Match katakana words only where no katakana precedes or follows.
+            *args:
+            max_allowed_num: The document is removed if the words match more than this number
+                of times. Defaults to 0, which removes the document on the first match.
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
+        self.max_allowed_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
 
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
@@ -365,8 +389,10 @@ class NgWordsFilterJa(Filter):
             self.keyword_pat = re.compile(pat)
 
     def apply(self, doc: Document) -> Document:
-        regex_match = self.keyword_pat.search(doc.text)
-        if regex_match:
+        regex_match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allowed_num, self.min_matches_per_1k_chars
+        )
+        if regex_match is not None:
             doc.is_rejected = True
             self.matched_text = regex_match.group()
             self.matched_text_neighbor = doc.text[
