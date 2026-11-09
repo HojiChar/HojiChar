@@ -29,6 +29,27 @@ BASE_PATH = pathlib.Path(hojichar.__path__[0])
 logger = logging.getLogger(__name__)
 
 
+def _find_excessive_match(
+    pattern: re.Pattern[str],
+    text: str,
+    max_allowed_num: int,
+    min_matches_per_1k_chars: float,
+) -> re.Match[str] | None:
+    """
+    Return the first match of `pattern` in `text` when the matches are more than
+    `max_allowed_num` and at least `min_matches_per_1k_chars` per 1,000 characters,
+    otherwise None. The scan stops as soon as both conditions hold.
+    """
+    min_matches = min_matches_per_1k_chars * len(text) / 1000
+    first_match = None
+    for num_matches, match in enumerate(pattern.finditer(text), start=1):
+        if first_match is None:
+            first_match = match
+        if num_matches > max_allowed_num and num_matches >= min_matches:
+            return first_match
+    return None
+
+
 class ExampleHojiChar(Filter):
     """基本的なフィルタの実装例です. 末尾に'<hojichar>'を追加します."""
 
@@ -311,6 +332,14 @@ class NgWordsFilterJa(Filter):
     `ignore_confused` を `True` にすると,
     偽陽性を軽減するために, カタカナのNGワードは前後にカタカナが無い場合のみNG判定されます.
     デフォルト値は `False` です.
+
+    デフォルトでは, NGワードに1回でもマッチした文書を破棄します. `max_allowed_num` と
+    `min_matches_per_1k_chars` を指定すると, マッチ数が `max_allowed_num` 回より多く, かつ
+    1,000 字あたりのマッチ数が `min_matches_per_1k_chars` 以上の文書だけを破棄します.
+    NGワードが数回だけ現れる長い文書 (生物学の記事など) を残し, NGワードを並べたページを
+    破棄する用途を想定しています. この2つの引数は, このクラスを継承する
+    `DiscardAdultContentJa`, `DiscardDiscriminationContentJa`, `DiscardViolenceContentJa` でも
+    使えます.
     """
 
     def __init__(
@@ -318,9 +347,25 @@ class NgWordsFilterJa(Filter):
         dict_path: str | PathLike[str],
         ignore_confused: bool = False,
         *args: Any,
+        max_allowed_num: int = 0,
+        min_matches_per_1k_chars: float = 0.0,
         **kwargs: Any,
     ) -> None:
+        """
+        Args:
+            dict_path: Path to the NG word list, one word per line.
+            ignore_confused: Match katakana words only where no katakana precedes or follows.
+            *args:
+            max_allowed_num: The document is removed if the words match more than this number
+                of times. Defaults to 0, which removes the document on the first match.
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
+        self.max_allowed_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
 
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
@@ -344,8 +389,10 @@ class NgWordsFilterJa(Filter):
             self.keyword_pat = re.compile(pat)
 
     def apply(self, doc: Document) -> Document:
-        regex_match = self.keyword_pat.search(doc.text)
-        if regex_match:
+        regex_match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allowed_num, self.min_matches_per_1k_chars
+        )
+        if regex_match is not None:
             doc.is_rejected = True
             self.matched_text = regex_match.group()
             self.matched_text_neighbor = doc.text[
@@ -495,18 +542,43 @@ class DiscardViolenceContentJa(NgWordsFilterJa):
 
 class DiscardBBSComments(Filter):
     """
-    正規表現 "BBS Pattern" に `max_allow_num` 回よりたくさんマッチする文書を破棄します.
-    `max_allow_num` のデフォルト値は14です.
-    正規表現 "BBS Pattern" は下記のリンクで検証可能です.
+    正規表現 "BBS Pattern" に `max_allowed_num` 回よりたくさんマッチする文書を破棄します.
+    `max_allowed_num` のデフォルト値は14です.
+
+    マッチ数は文書が長いほど増えるため, 固定の回数だけで判定すると, 日付や「ページ」「質問」を
+    含む長い文書 (学校だより・官公庁の PDF など) が長さだけを理由に破棄されます.
+    `min_matches_per_1k_chars` を指定すると, 1,000 字あたりのマッチ数がこの値以上の場合にだけ
+    破棄します. デフォルト値は 0.0 で, マッチ数だけで判定します.
+
+    正規表現 "BBS Pattern" は下記のリンクで検証可能です. ただし, リンク先は末尾に `|-` を含む
+    以前のパターンです. この `-` は, Markdown の表の区切り行やハイフンでつないだ語に含まれる
+    すべてのハイフンを1回のマッチとして数えていたため, 取り除きました.
     https://regex101.com/r/ybQvL2/1
     """
 
-    def __init__(self, max_allowed_num: int = 14, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        max_allowed_num: int = 14,
+        *args: Any,
+        min_matches_per_1k_chars: float = 0.0,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            max_allowed_num: The document is removed if the pattern matches more than this
+                number of times.
+            *args:
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
 
         self.max_allowed_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
         self.keyword_pat = re.compile(
-            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場|-"  # noqa
+            r"\d{4}[年\.\-\/][\ ]*\d{1,2}[月\.\-\/][\ ]*\d{1,2}[日]*|コメント|SOLD OUT|レビュー|投稿|ページ|\([月火水木金土日]\)|質問|\d+話|楽天市場"  # noqa
         )
 
     def apply(self, doc: Document) -> Document:
@@ -516,20 +588,29 @@ class DiscardBBSComments(Filter):
 
         >>> DiscardBBSComments().apply(Document("鏡餅")).is_rejected
         False
+
+        >>> DiscardBBSComments().apply(Document("| a | b |\\n| --- | --- |\\n" * 5)).is_rejected
+        False
         """
-        bbs_factor = self.keyword_pat.findall(doc.text)
-        if len(bbs_factor) > self.max_allowed_num:
+        match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allowed_num, self.min_matches_per_1k_chars
+        )
+        if match is not None:
             doc.is_rejected = True
         return doc
 
 
 class DiscardAds(Filter):
     """
-    主に広告キーワードを`max_allow_num`より多く含む文書を破棄します.
-    デフォルトで`max_allow_num` は14です.
+    主に広告キーワードを`max_allowed_num`より多く含む文書を破棄します.
+    デフォルトで`max_allowed_num` は14です.
     `dict_path` で指定したファイルから, 広告キーワードのリストを得ます.
     ファイルは単語が改行で羅列されたテキストファイルです.
     デフォルトの`dict_path` は /hojichar/dict/advertisement_keywords_ja.txt です.
+
+    `DiscardBBSComments` と同じく, `min_matches_per_1k_chars` を指定すると, 1,000 字あたりの
+    マッチ数がこの値以上の場合にだけ破棄します. 「お問い合わせ」などの語を含む長い文書が
+    長さだけを理由に破棄されるのを防ぎます. デフォルト値は 0.0 で, マッチ数だけで判定します.
     """
 
     def __init__(
@@ -537,11 +618,24 @@ class DiscardAds(Filter):
         dict_path: str | PathLike[str] = BASE_PATH / "dict/advertisement_keywords_ja.txt",
         max_allowed_num: int = 14,
         *args: Any,
+        min_matches_per_1k_chars: float = 0.0,
         **kwargs: Any,
     ):
+        """
+        Args:
+            dict_path: Path to the keyword list, one keyword per line.
+            max_allowed_num: The document is removed if the keywords match more than this
+                number of times.
+            *args:
+            min_matches_per_1k_chars: The document is removed only if there are also at least
+                this many matches per 1,000 characters. Defaults to 0.0, which decides by
+                `max_allowed_num` alone.
+            **kwargs:
+        """
         super().__init__(*args, **kwargs)
 
         self.max_allow_num = max_allowed_num
+        self.min_matches_per_1k_chars = min_matches_per_1k_chars
         with open(dict_path, encoding="utf-8") as fp:
             ng_words = fp.read().split("\n")
         ng_words = [re.escape(w.strip()) for w in ng_words if not len(w) == 0]
@@ -556,8 +650,10 @@ class DiscardAds(Filter):
         >>> DiscardAds().apply(Document("おはよう")).is_rejected
         False
         """
-        ads_factor = self.keyword_pat.findall(doc.text)
-        if len(ads_factor) > self.max_allow_num:
+        match = _find_excessive_match(
+            self.keyword_pat, doc.text, self.max_allow_num, self.min_matches_per_1k_chars
+        )
+        if match is not None:
             doc.is_rejected = True
         return doc
 
@@ -685,6 +781,11 @@ class HeaderFooterTagsRemover(Filter):
 class MaskPersonalInformation(Filter):
     """
     ドキュメントに含まれる電話番号・電子メールアドレスを一部マスキングします.
+
+    電子メールアドレスのローカル部 ("@" の前) は, RFC 5321 の上限である 64 字までを対象にします.
+    "@" の前に英数字や記号が 64 字を超えて続く場合は, "@" の直前の 64 字からマスクします.
+    以前は上限がなく, 英数字や記号が長く続くテキスト (特に "@" を多く含むもの) では,
+    処理時間がその長さの2乗に比例していました.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -693,8 +794,12 @@ class MaskPersonalInformation(Filter):
         self.phone_pat = re.compile(
             r"((0|\+\d{1,3}[- ]?)(\d{2}[- ]?\d{4}[- ]?|\d[- ]?\d{4}[- ]?|\d{2}[- ]?\d{3}[- ]?|\d{3}[- ]?\d{2}[- ]?|\d{4}[- ]?\d{1}[- ]?))\d{4}"  # noqa
         )
+        # The local part is bounded to 64 characters, the limit of RFC 5321. Unbounded, a long
+        # run of these characters was rescanned from every position in it, which is quadratic
+        # in the run length. With the bound, at most 64 starting positions reach each "@", so
+        # the scan is linear in the text length.
         self.email_pat = re.compile(
-            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]+@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
+            r"[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~.]{1,64}@[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~.]+(\.[A-Za-z0-9\-]+)"  # noqa
         )
 
     def apply(self, doc: Document) -> Document:
@@ -723,9 +828,12 @@ class MaskPersonalInformation(Filter):
         'xxxx@yyy.com'
         >>> MaskPersonalInformation()('何かあれば hogehoge@example.ne.jp まで連絡')
         '何かあれば xxxx@yyy.jp まで連絡'
+        >>> MaskPersonalInformation()('a' * 70 + '@example.com')
+        'aaaaaaxxxx@yyy.com'
         """
         text = self.phone_pat.sub(r"\1XXXX", doc.text)
-        text = self.email_pat.sub(r"xxxx@yyy\1", text)
+        if "@" in text:
+            text = self.email_pat.sub(r"xxxx@yyy\1", text)
         doc.text = text
         return doc
 
@@ -1016,26 +1124,43 @@ class SingleCharacterRepetitionFilter(Filter):
     そのような文書はノイズである可能性が高いため
     参考: BigScienceプロジェクトによると、oscarデータセットの中にバックスラッシュだけを2M個含むような文書が含まれていたらしい
     https://github.com/bigscience-workshop/bigscience/blob/master/train/tr8-104B-wide/chronicles.md#2m-backslash-only-samples-in-our-dataset  # noqa: E501
+
+    デフォルトでは文書の長さにかかわらず, `threshold` 文字以上の繰り返しが1か所でもあれば破棄します.
+    そのため, 長い文書 (例えば 200,000 字のエージェントの実行ログ) にテスト結果の区切り線 "=====" が
+    1行あるだけでも破棄されます. `min_ratio` を指定すると, 繰り返しの長さが文書長に対して
+    `min_ratio` 以上の割合を占める場合にだけ破棄します.
+
+    >>> doc = "テストの実行ログです。\\n" * 2000 + "=" * 200
+    >>> SingleCharacterRepetitionFilter().apply(Document(doc)).is_rejected
+    True
+    >>> SingleCharacterRepetitionFilter(min_ratio=0.1).apply(Document(doc)).is_rejected
+    False
     """
 
     def __init__(
         self,
         threshold: int = 200,
         *args: Any,
+        min_ratio: float = 0.0,
         **kwargs: Any,
     ) -> None:
         """
         Args:
             threshold: The document is removed if character is repeated for this value or more
             *args:
+            min_ratio: The document is removed only if the repeated run is also at least this
+                fraction of the document length. Defaults to 0.0, which decides by `threshold`
+                alone.
             **kwargs:
         """
         super().__init__(*args, **kwargs)
         self.threshold = threshold
+        self.min_ratio = min_ratio
 
     def _is_repeat_contained(self, text: str) -> bool:
+        min_run = max(self.threshold, self.min_ratio * len(text))
         groups = groupby(text)
-        is_repeat_contained = any(sum(1 for _ in group) >= self.threshold for _, group in groups)
+        is_repeat_contained = any(sum(1 for _ in group) >= min_run for _, group in groups)
         return is_repeat_contained
 
     def apply(self, doc: Document) -> Document:
@@ -1110,4 +1235,74 @@ class DiscardTooShortLines(Filter):
         short_lines = [x for x in lines if x <= self.minimum_line_length]
         if (len(short_lines) / len(lines)) > self.threshold:
             doc.is_rejected = True
+        return doc
+
+
+class CollapseRepeatedDocument(Filter):
+    """
+    文書全体が同じブロックの2回または3回の繰り返しになっている場合に, 1回分だけを残します.
+
+    テキスト抽出器がページを2回続けて出力した文書などを想定しています.
+    内容は1回分なら問題ないため, このフィルタは文書を破棄せず, テキストを書き換えます.
+
+    コピーの間には `max_separator_len` 字までの区切りを許し, 区切りの中身は比べません.
+    ブロックの前後の空白を除いて比べるため, 空白や改行だけの区切りは, これより長くても
+    畳まれる場合があります. 短い定型句の繰り返しを畳まないように, 残すブロックは
+    `min_block_len` 字以上とします. 文書の先頭と末尾 (3回の場合は中央も) を比べるだけなので,
+    計算量は文書長に比例します. 畳んだ場合は, 文書の前後の空白も取り除かれます.
+
+    >>> block = "HojiChar はテキストの前処理パイプラインを組み立てるための Python ライブラリです。"
+    >>> CollapseRepeatedDocument()(block + "\\n" + block) == block
+    True
+    >>> CollapseRepeatedDocument()(block + "\\n\\n" + block + "\\n\\n" + block + "\\n") == block
+    True
+    >>> CollapseRepeatedDocument()("短い文です。" * 2)
+    '短い文です。短い文です。'
+    """
+
+    def __init__(
+        self,
+        min_block_len: int = 40,
+        max_separator_len: int = 3,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Args:
+            min_block_len: Minimum length of the block to keep. Shorter repeats are left as
+                they are.
+            max_separator_len: Maximum length of the text between copies. Its content is not
+                compared.
+            *args:
+            **kwargs:
+        """
+        super().__init__(*args, **kwargs)
+        self.min_block_len = min_block_len
+        self.max_separator_len = max_separator_len
+
+    def apply(self, doc: Document) -> Document:
+        text = doc.text.strip()
+        n = len(text)
+        if n < 2 * self.min_block_len:
+            return doc
+        for num_copies in (2, 3):
+            for total_separator_len in range(self.max_separator_len * (num_copies - 1) + 1):
+                block_len, remainder = divmod(n - total_separator_len, num_copies)
+                if remainder or block_len < self.min_block_len:
+                    continue
+                block = text[:block_len].rstrip()
+                if len(block) < self.min_block_len or block != text[n - block_len :].lstrip():
+                    continue
+                if num_copies == 3:
+                    # Each separator has its own length; the middle copy need not be centered.
+                    min_first_len = max(0, total_separator_len - self.max_separator_len)
+                    max_first_len = min(self.max_separator_len, total_separator_len)
+                    for first_len in range(min_first_len, max_first_len + 1):
+                        middle_start = block_len + first_len
+                        if block == text[middle_start : middle_start + block_len].strip():
+                            break
+                    else:
+                        continue
+                doc.text = block
+                return doc
         return doc
